@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Roboto Mono", monospace;
+}
+
+@layer base {
+  body {
+    @apply antialiased text-slate-900 bg-slate-50;
+  }
+}
+
+@layer components {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-thin::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    @apply bg-slate-200 rounded-full hover:bg-slate-300 transition-colors;
+  }
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    size: A5;
+    margin: 8mm;
+  }
+
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    font-family: "宋体", "SimSun", "微软雅黑", "Microsoft YaHei", serif;
+  }
+
+  #root {
+    display: none !important;
+  }
+
+  .print-area {
+    display: block !important;
+    width: 100%;
+    background: white;
+  }
+
+  .print-sheet {
+    width: 100%;
+  }
+
+  .print-page {
+    width: 100%;
+    height: auto;
+    min-height: 100%;
+    padding: 0;
+    position: relative;
+    page-break-after: always;
+    page-break-inside: avoid;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  /* Ensure table borders and colors are printed */
+  table {
+    border-collapse: collapse !important;
+  }
+  
+  th, td {
+    border: 1pt solid black !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+.print-area {
+  display: none;
+}
+
+/* Custom animations */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
