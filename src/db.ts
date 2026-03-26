@@ -40,7 +40,7 @@ export class MyDatabase extends Dexie {
       logs: '++id, user, action, createdAt, updatedAt, isDeleted, appwriteId',
       stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
       repayments: '++id, customerId, customerName, method, createdAt, updatedAt, isDeleted, appwriteId',
-      searchHistory: '++id, keyword, createdAt',
+      searchHistory: '++id, keyword, updatedAt',
       syncState: 'key',
     });
 
