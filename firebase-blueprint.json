@@ -1,0 +1,112 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Product information including stock and pricing",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "pinyin": { "type": "string" },
+        "category": { "type": "string" },
+        "image": { "type": "string", "description": "Base64 image data" },
+        "imageUrl": { "type": "string", "description": "Cloud Storage URL" },
+        "purchasePrice": { "type": "number" },
+        "wholesalePrice": { "type": "number" },
+        "price2": { "type": "number" },
+        "price3": { "type": "number" },
+        "retailPrice": { "type": "number" },
+        "weight": { "type": "number" },
+        "unit": { "type": "string" },
+        "pricingMethod": { "type": "string", "enum": ["piece", "weight"] },
+        "stock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "searchCount": { "type": "number" },
+        "history": { "type": "array", "items": { "type": "object" } },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isDeleted": { "type": "boolean" }
+      },
+      "required": ["userId", "code", "name", "updatedAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer information and debt tracking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
+        "debt": { "type": "number" },
+        "totalSpent": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isDeleted": { "type": "boolean" }
+      },
+      "required": ["userId", "name", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Sales order record",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "orderNo": { "type": "string" },
+        "customerId": { "type": "number" },
+        "customerName": { "type": "string" },
+        "items": { "type": "array", "items": { "type": "object" } },
+        "totalAmount": { "type": "number" },
+        "discount": { "type": "number" },
+        "finalAmount": { "type": "number" },
+        "paymentMethod": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isDeleted": { "type": "boolean" }
+      },
+      "required": ["userId", "orderNo", "customerName", "updatedAt"]
+    },
+    "OperationLog": {
+      "title": "OperationLog",
+      "description": "System operation logs",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "user": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isDeleted": { "type": "boolean" }
+      },
+      "required": ["userId", "action", "updatedAt"]
+    },
+    "StockMovement": {
+      "title": "StockMovement",
+      "description": "Inventory movement records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "productId": { "type": "number" },
+        "productName": { "type": "string" },
+        "type": { "type": "string" },
+        "quantity": { "type": "number" },
+        "previousStock": { "type": "number" },
+        "reason": { "type": "string" },
+        "operator": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isDeleted": { "type": "boolean" }
+      },
+      "required": ["userId", "productId", "type", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/products": { "schema": "Product", "description": "User's products" },
+    "/users/{userId}/customers": { "schema": "Customer", "description": "User's customers" },
+    "/users/{userId}/orders": { "schema": "Order", "description": "User's orders" },
+    "/users/{userId}/logs": { "schema": "OperationLog", "description": "User's logs" },
+    "/users/{userId}/stockMovements": { "schema": "StockMovement", "description": "User's stock movements" }
+  }
+}
