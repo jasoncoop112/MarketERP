@@ -51,7 +51,7 @@ class SyncService {
                 await this.syncTable(tableName, collectionId).catch(() => {});
             }
             
-            await db.syncState.put({ key: 'lastSync', lastSync: new Date().toISOString() }).catch(() => {});
+            await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() }).catch(() => {});
         } catch (error) {
             // Silent fail for syncAll
         } finally {
@@ -64,7 +64,7 @@ class SyncService {
             const table = db[tableName] as any;
             if (!table) return;
 
-            const lastSyncState = await db.syncState.get('lastSync').catch(() => null);
+            const lastSyncState = await db.syncStatus.get('lastSync').catch(() => null);
             const lastSync = lastSyncState?.lastSync || new Date(0).toISOString();
 
             // 1. Push local changes to Appwrite
@@ -92,9 +92,16 @@ class SyncService {
                         }
 
                         if (item.appwriteId) {
-                            await databases.updateDocument(DATABASE_ID, collectionId, item.appwriteId, this.prepareForAppwrite(data)).catch(() => {});
+                            await databases.updateDocument(DATABASE_ID, collectionId, item.appwriteId, this.prepareForAppwrite(data))
+                                .catch((err) => {
+                                    console.error(`Sync Update Error [${tableName}]:`, err);
+                                });
                         } else {
-                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), this.prepareForAppwrite(data)).catch(() => null);
+                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), this.prepareForAppwrite(data))
+                                .catch((err) => {
+                                    console.error(`Sync Create Error [${tableName}]:`, err);
+                                    return null;
+                                });
                             if (doc) {
                                 await table.update(id, { appwriteId: doc.$id }).catch(() => {});
                             }
