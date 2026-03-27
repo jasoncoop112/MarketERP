@@ -238,6 +238,53 @@ export default function App() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+  
+  // Generate local-only test data (cleared on refresh, not synced to cloud)
+  useEffect(() => {
+    const generateTestData = async () => {
+      // 1. Clear old test data to avoid duplicates/accumulation
+      await db.products.where('isTest').equals(1).delete();
+      await db.customers.where('isTest').equals(1).delete();
+      await db.orders.where('isTest').equals(1).delete();
+
+      // 2. Add new test data
+      const testProducts = [
+        { isTest: true, code: 'TEST-001', name: '测试商品A', pinyin: 'csspa', category: '测试', purchasePrice: 10, wholesalePrice: 20, price2: 22, price3: 25, retailPrice: 30, weight: 1, unit: '包', pricingMethod: 'piece', stock: 100, minStock: 10, history: [] },
+        { isTest: true, code: 'TEST-002', name: '测试商品B', pinyin: 'csspb', category: '测试', purchasePrice: 15, wholesalePrice: 25, price2: 28, price3: 30, retailPrice: 35, weight: 1, unit: '包', pricingMethod: 'piece', stock: 50, minStock: 5, history: [] },
+        { isTest: true, code: 'TEST-003', name: '测试商品C (按斤)', pinyin: 'csspc', category: '测试', purchasePrice: 8, wholesalePrice: 12, price2: 13, price3: 14, retailPrice: 15, weight: 1, unit: '斤', pricingMethod: 'weight', stock: 30, minStock: 5, history: [] },
+      ];
+      const pIds = await db.products.bulkAdd(testProducts as any[], { allKeys: true });
+
+      const testCustomer = { isTest: true, name: '测试客户', phone: '13888888888', debt: 0, totalSpent: 0, bucketsOut: 0, bucketsIn: 0, createdAt: new Date().toISOString() };
+      const cId = await db.customers.add(testCustomer as any);
+
+      const testOrder = {
+        isTest: true,
+        orderNo: 'TEST-' + format(new Date(), 'yyyyMMdd') + '-0001',
+        customerId: cId,
+        customerName: '测试客户',
+        items: [
+          { productId: pIds[0], name: '测试商品A', price: 20, quantity: 2, unit: '包', pricingMethod: 'piece', total: 40 },
+          { productId: pIds[1], name: '测试商品B', price: 25, quantity: 1, unit: '包', pricingMethod: 'piece', total: 25 },
+          { productId: pIds[2], name: '测试商品C (按斤)', price: 12, quantity: 1.5, unit: '斤', pricingMethod: 'weight', total: 18 },
+        ],
+        totalAmount: 83,
+        discount: 3,
+        bucketsOut: 1,
+        bucketsIn: 0,
+        depositAmount: 20,
+        finalAmount: 100,
+        paymentMethod: '现金',
+        status: '已支付',
+        createdAt: new Date().toISOString()
+      };
+      await db.orders.add(testOrder as any);
+      
+      console.log('Local test data generated successfully (will not sync to cloud)');
+    };
+    
+    generateTestData();
+  }, []);
 
   // Seed initial data if empty
   useEffect(() => {
@@ -247,8 +294,8 @@ export default function App() {
         await db.products.bulkAdd([
           { code: 'FN-001', name: '澳洲肥牛卷', pinyin: 'azfnj', category: '冻肉', purchasePrice: 35, wholesalePrice: 45, price2: 48, price3: 50, retailPrice: 55, weight: 1, unit: '包', pricingMethod: 'piece', stock: 100, minStock: 20, history: [] },
           { code: 'FN-002', name: '新西兰羊肉卷', pinyin: 'xxlyrj', category: '冻肉', purchasePrice: 42, wholesalePrice: 52, price2: 55, price3: 58, retailPrice: 65, weight: 1, unit: '包', pricingMethod: 'piece', stock: 80, minStock: 15, history: [] },
-          { code: 'HX-001', name: '南美白对虾', pinyin: 'nmbdx', category: '海鲜', purchasePrice: 30, wholesalePrice: 38, price2: 40, price3: 42, retailPrice: 48, weight: 2, unit: '件', pricingMethod: 'piece', stock: 50, minStock: 10, history: [] },
-          { code: 'WZ-001', name: '手打潮汕牛肉丸', pinyin: 'sdcsnrw', category: '丸子', purchasePrice: 20, wholesalePrice: 28, price2: 30, price3: 32, retailPrice: 35, weight: 0.5, unit: '包', pricingMethod: 'piece', stock: 200, minStock: 50, history: [] },
+          { code: 'HX-001', name: '南美白对虾', pinyin: 'nmbdx', category: '其他', purchasePrice: 30, wholesalePrice: 38, price2: 40, price3: 42, retailPrice: 48, weight: 2, unit: '件', pricingMethod: 'piece', stock: 50, minStock: 10, history: [] },
+          { code: 'WZ-001', name: '手打潮汕牛肉丸', pinyin: 'sdcsnrw', category: '其他', purchasePrice: 20, wholesalePrice: 28, price2: 30, price3: 32, retailPrice: 35, weight: 0.5, unit: '包', pricingMethod: 'piece', stock: 200, minStock: 50, history: [] },
           { code: 'JR-001', name: '散装鸡爪 (按斤)', pinyin: 'szjz', category: '禽类', purchasePrice: 12, wholesalePrice: 15.5, price2: 16, price3: 17, retailPrice: 18, weight: 1, unit: '斤', pricingMethod: 'weight', stock: 50.5, minStock: 10, history: [] },
         ]);
         await db.customers.bulkAdd([
