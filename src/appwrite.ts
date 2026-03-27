@@ -6,7 +6,7 @@
 import { Client, Databases, Storage, Account } from 'appwrite';
 
 const client = new Client()
-    .setEndpoint('https://sgp.cloud.appwrite.io/v1')
+    .setEndpoint('https://cloud.appwrite.io/v1')
     .setProject('69c4c032002f214af93e');
 
 export const databases = new Databases(client);
