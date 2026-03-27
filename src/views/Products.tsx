@@ -559,11 +559,14 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      console.log('Product image upload started:', file.name);
       const reader = new FileReader();
       reader.onloadend = async () => {
         try {
+          console.log('Compressing image...');
           const compressed = await compressImage(reader.result as string);
           setFormData({ ...formData, image: compressed });
+          console.log('Image compressed and set');
         } catch (err) {
           console.error('Image compression failed:', err);
           setFormData({ ...formData, image: reader.result as string });
@@ -575,14 +578,18 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Product Form Submit Started', formData);
     try {
       const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
       const data = { ...formData, pinyin: py } as Product;
       
       if (product?.id) {
+        console.log('Updating existing product:', product.id);
         await db.products.put({ ...data, id: product.id });
       } else {
+        console.log('Adding new product');
         const id = await db.products.add(data);
+        console.log('Product added with local ID:', id);
         if (data.stock > 0) {
           await db.stockMovements.add({
             productId: id as number,
@@ -605,6 +612,7 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
         createdAt: new Date().toISOString()
       });
       
+      console.log('Product save successful, closing modal');
       onClose();
     } catch (error) {
       console.error('Product Save Error:', error);

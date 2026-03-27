@@ -40,7 +40,7 @@ export default function SettingsView({ userRole }: SettingsProps) {
   const logs = useLiveQuery(() => db.logs.orderBy('createdAt').reverse().limit(50).toArray()) || [];
   const [isBackupSuccess, setIsBackupSuccess] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<{ database: boolean; storage: boolean } | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<{ database: boolean; storage: boolean; error?: string } | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const lastSync = useLiveQuery(() => db.syncStatus.get('lastSync'));
 
@@ -49,8 +49,8 @@ export default function SettingsView({ userRole }: SettingsProps) {
     try {
       const status = await syncService.checkConnection();
       setConnectionStatus(status);
-    } catch (error) {
-      setConnectionStatus({ database: false, storage: false });
+    } catch (error: any) {
+      setConnectionStatus({ database: false, storage: false, error: error.message || String(error) });
     } finally {
       setIsCheckingConnection(false);
     }
@@ -285,9 +285,14 @@ export default function SettingsView({ userRole }: SettingsProps) {
                     <Check size={12} /> 正常连接
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-rose-600 text-[10px] font-bold">
-                    <X size={12} /> 连接失败
-                  </span>
+                  <div className="text-right">
+                    <span className="flex items-center justify-end gap-1 text-rose-600 text-[10px] font-bold">
+                      <X size={12} /> 连接失败
+                    </span>
+                    {connectionStatus.error && (
+                      <p className="text-[9px] text-rose-400 mt-1 max-w-[200px] leading-tight">{connectionStatus.error}</p>
+                    )}
+                  </div>
                 )}
               </div>
 

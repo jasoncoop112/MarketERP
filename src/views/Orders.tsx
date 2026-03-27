@@ -122,14 +122,19 @@ export default function Orders() {
 
   const handleDelete = async (id: number) => {
     if (window.confirm('确定要删除这条订单记录吗？')) {
-      const now = new Date().toISOString();
-      await db.orders.update(id, { isDeleted: true });
-      await db.logs.add({
-        user: '管理员',
-        action: '删除订单',
-        details: `删除了订单 ID: ${id}`,
-        createdAt: now
-      });
+      try {
+        const now = new Date().toISOString();
+        await db.orders.update(id, { isDeleted: true });
+        await db.logs.add({
+          user: '管理员',
+          action: '删除订单',
+          details: `删除了订单 ID: ${id}`,
+          createdAt: now
+        });
+      } catch (error) {
+        console.error('Order Delete Error:', error);
+        alert('删除订单失败，请重试');
+      }
     }
   };
 

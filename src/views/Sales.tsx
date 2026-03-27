@@ -238,12 +238,14 @@ export default function Sales() {
 
   const handleCheckout = async (shouldPrint = true, force = false) => {
     if (cart.length === 0) return;
+    console.log('Checkout Started', { cart, selectedCustomer, paymentMethod });
 
     // Stock check
     if (!force) {
       for (const item of cart) {
         const product = products.find(p => p.id === item.productId);
         if (product && item.quantity > product.stock) {
+          console.warn('Stock warning for:', item.name);
           setStockWarning({ name: item.name, stock: product.stock, requested: item.quantity });
           return;
         }
@@ -259,6 +261,7 @@ export default function Sales() {
     
     const sequence = (todayOrders.length + 1).toString().padStart(4, '0');
     const orderNo = `${todayStr}-${sequence}`;
+    console.log('Generated Order No:', orderNo);
     
     const order: Order = {
       orderNo,
@@ -278,9 +281,11 @@ export default function Sales() {
 
     try {
       // 1. Save Order
+      console.log('Saving order to local DB...');
       await db.orders.add(order);
 
       // 2. Update Stock
+      console.log('Updating stock for items...');
       for (const item of cart) {
         const product = await db.products.get(item.productId);
         if (product) {
@@ -306,6 +311,7 @@ export default function Sales() {
 
       // 3. Update Customer Debt/Spent/Buckets
       if (selectedCustomer) {
+        console.log('Updating customer stats:', selectedCustomer.name);
         // 现结冲抵欠款，挂账则累加欠款
         // newDebt = oldDebt + (finalAmount - receivedAmount)
         const diff = finalAmount - receivedAmount;
@@ -330,6 +336,7 @@ export default function Sales() {
         createdAt: new Date().toISOString()
       });
 
+      console.log('Checkout successful');
       setLastOrderNo(orderNo);
       setIsOrderSuccess(true);
       
