@@ -42,7 +42,7 @@ export default function SettingsView({ userRole }: SettingsProps) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<{ database: boolean; storage: boolean } | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
-  const lastSync = useLiveQuery(() => db.syncState.get('lastSync'));
+  const lastSync = useLiveQuery(() => db.syncStatus.get('lastSync'));
 
   const handleCheckConnection = async () => {
     setIsCheckingConnection(true);
@@ -126,11 +126,13 @@ export default function SettingsView({ userRole }: SettingsProps) {
           items: typeof o.items === 'string' ? JSON.parse(o.items) : o.items
         }));
 
-        await db.transaction('rw', [db.products, db.customers, db.orders, db.logs], async () => {
+        await db.transaction('rw', [db.products, db.customers, db.orders, db.logs, db.stockMovements, db.repayments], async () => {
           await db.products.clear();
           await db.customers.clear();
           await db.orders.clear();
           await db.logs.clear();
+          await db.stockMovements.clear();
+          await db.repayments.clear();
 
           if (products.length > 0) await db.products.bulkAdd(products);
           if (customers.length > 0) await db.customers.bulkAdd(customers);
@@ -149,7 +151,13 @@ export default function SettingsView({ userRole }: SettingsProps) {
 
   const handleClearLogs = async () => {
     if (confirm('确定要清空所有操作日志吗？')) {
-      await db.logs.clear();
+      try {
+        await db.logs.clear();
+        alert('日志已清空');
+      } catch (error) {
+        console.error('Clear Logs Error:', error);
+        alert('清空日志失败');
+      }
     }
   };
 

@@ -59,7 +59,9 @@ export default function Products({ userRole }: ProductsProps) {
 
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category));
-    return ['全部', ...Array.from(cats)];
+    // Filter out unwanted categories
+    const filteredCats = Array.from(cats).filter(cat => cat !== '海鲜类' && cat !== '丸子类');
+    return ['全部', ...filteredCats];
   }, [products]);
 
   // Filter and sort products
@@ -70,9 +72,9 @@ export default function Products({ userRole }: ProductsProps) {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(p => 
-        p.name.toLowerCase().includes(term) || 
-        p.code.toLowerCase().includes(term) ||
-        p.pinyin.toLowerCase().includes(term)
+        (p.name || '').toLowerCase().includes(term) || 
+        (p.code || '').toLowerCase().includes(term) ||
+        (p.pinyin || '').toLowerCase().includes(term)
       );
     }
 
@@ -136,13 +138,18 @@ export default function Products({ userRole }: ProductsProps) {
 
   const handleDelete = async (id: number) => {
     if (confirm('确定要删除该商品吗？')) {
-      await db.products.update(id, { isDeleted: true });
-      await db.logs.add({
-        user: '管理员',
-        action: '删除商品',
-        details: `删除了商品 ID: ${id}`,
-        createdAt: new Date().toISOString()
-      });
+      try {
+        await db.products.update(id, { isDeleted: true });
+        await db.logs.add({
+          user: '管理员',
+          action: '删除商品',
+          details: `删除了商品 ID: ${id}`,
+          createdAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Product Delete Error:', error);
+        alert('删除商品失败，请重试');
+      }
     }
   };
 
@@ -568,36 +575,41 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
-    const data = { ...formData, pinyin: py } as Product;
-    
-    if (product?.id) {
-      await db.products.put({ ...data, id: product.id });
-    } else {
-      const id = await db.products.add(data);
-      if (data.stock > 0) {
-        await db.stockMovements.add({
-          productId: id as number,
-          productName: data.name,
-          type: '入库',
-          quantity: data.stock,
-          previousStock: 0,
-          currentStock: data.stock,
-          reason: '初始库存',
-          operator: '管理员',
-          createdAt: new Date().toISOString()
-        });
+    try {
+      const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
+      const data = { ...formData, pinyin: py } as Product;
+      
+      if (product?.id) {
+        await db.products.put({ ...data, id: product.id });
+      } else {
+        const id = await db.products.add(data);
+        if (data.stock > 0) {
+          await db.stockMovements.add({
+            productId: id as number,
+            productName: data.name,
+            type: '入库',
+            quantity: data.stock,
+            previousStock: 0,
+            currentStock: data.stock,
+            reason: '初始库存',
+            operator: '管理员',
+            createdAt: new Date().toISOString()
+          });
+        }
       }
+      
+      await db.logs.add({
+        user: '管理员',
+        action: product ? '编辑商品' : '新增商品',
+        details: `${product ? '编辑' : '新增'}了商品: ${data.name}`,
+        createdAt: new Date().toISOString()
+      });
+      
+      onClose();
+    } catch (error) {
+      console.error('Product Save Error:', error);
+      alert('保存商品失败，请重试');
     }
-    
-    await db.logs.add({
-      user: '管理员',
-      action: product ? '编辑商品' : '新增商品',
-      details: `${product ? '编辑' : '新增'}了商品: ${data.name}`,
-      createdAt: new Date().toISOString()
-    });
-    
-    onClose();
   };
 
   return (
@@ -688,8 +700,6 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
               >
                 <option>鸡类</option>
                 <option>鸭类</option>
-                <option>海鲜类</option>
-                <option>丸子类</option>
                 <option>冻肉类</option>
                 <option>其他</option>
               </select>

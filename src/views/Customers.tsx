@@ -62,13 +62,18 @@ export default function Customers() {
 
   const handleDelete = async (id: number) => {
     if (confirm('确定要删除该客户吗？')) {
-      await db.customers.update(id, { isDeleted: true });
-      await db.logs.add({
-        user: '管理员',
-        action: '删除客户',
-        details: `删除了客户 ID: ${id}`,
-        createdAt: new Date().toISOString()
-      });
+      try {
+        await db.customers.update(id, { isDeleted: true });
+        await db.logs.add({
+          user: '管理员',
+          action: '删除客户',
+          details: `删除了客户 ID: ${id}`,
+          createdAt: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('Customer Delete Error:', error);
+        alert('删除客户失败，请重试');
+      }
     }
   };
 
@@ -738,12 +743,17 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (customer?.id) {
-      await db.customers.update(customer.id, formData);
-    } else {
-      await db.customers.add(formData as Customer);
+    try {
+      if (customer?.id) {
+        await db.customers.update(customer.id, formData);
+      } else {
+        await db.customers.add(formData as Customer);
+      }
+      onClose();
+    } catch (error) {
+      console.error('Customer Save Error:', error);
+      alert('保存客户失败，请重试');
     }
-    onClose();
   };
 
   return (
@@ -776,12 +786,11 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
             <div className="space-y-2">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">联系电话</label>
               <input 
-                required
                 type="text" 
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                placeholder="138xxxx8888"
+                placeholder="138xxxx8888 (选填)"
               />
             </div>
             <div className="space-y-2">
@@ -831,30 +840,35 @@ function DebtRepaymentModal({ customer, onClose }: { customer: Customer, onClose
 
   const handleRepay = async () => {
     if (amount <= 0) return;
-    const newDebt = Math.max(0, customer.debt - amount);
-    
-    // 1. Update customer debt
-    await db.customers.update(customer.id!, { 
-      debt: newDebt
-    });
+    try {
+      const newDebt = Math.max(0, customer.debt - amount);
+      
+      // 1. Update customer debt
+      await db.customers.update(customer.id!, { 
+        debt: newDebt
+      });
 
-    // 2. Record repayment
-    await db.repayments.add({
-      customerId: customer.id!,
-      customerName: customer.name,
-      amount: amount,
-      method: method,
-      createdAt: new Date().toISOString()
-    });
+      // 2. Record repayment
+      await db.repayments.add({
+        customerId: customer.id!,
+        customerName: customer.name,
+        amount: amount,
+        method: method,
+        createdAt: new Date().toISOString()
+      });
 
-    // 3. Log action
-    await db.logs.add({
-      user: '管理员',
-      action: '收款销账',
-      details: `客户 ${customer.name} 偿还欠款 ¥${amount} (${method})。剩余欠款: ¥${newDebt}`,
-      createdAt: new Date().toISOString()
-    });
-    onClose();
+      // 3. Log action
+      await db.logs.add({
+        user: '管理员',
+        action: '收款销账',
+        details: `客户 ${customer.name} 偿还欠款 ¥${amount} (${method})。剩余欠款: ¥${newDebt}`,
+        createdAt: new Date().toISOString()
+      });
+      onClose();
+    } catch (error) {
+      console.error('Repayment Error:', error);
+      alert('收款失败，请重试');
+    }
   };
 
   return (

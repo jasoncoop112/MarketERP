@@ -33,7 +33,7 @@ import type { Product, Customer, Order, OrderItem, SearchHistory } from '../type
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 
-import OrderPrintPreview from '../components/OrderPrintPreview.tsx';
+import OrderPrintPreview from '../components/OrderPrintPreview';
 
 export default function Sales() {
   const products = useLiveQuery(() => db.products.where('isDeleted').notEqual(1).toArray()) || [];
@@ -83,7 +83,9 @@ export default function Sales() {
   // Categories
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category));
-    return ['全部', ...Array.from(cats)];
+    // Filter out unwanted categories
+    const filteredCats = Array.from(cats).filter(cat => cat !== '海鲜类' && cat !== '丸子类');
+    return ['全部', ...filteredCats];
   }, [products]);
 
   // Filter products
@@ -96,9 +98,9 @@ export default function Sales() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(p => 
-        p.name.toLowerCase().includes(term) || 
-        p.code.toLowerCase().includes(term) ||
-        p.pinyin.toLowerCase().includes(term)
+        (p.name || '').toLowerCase().includes(term) || 
+        (p.code || '').toLowerCase().includes(term) ||
+        (p.pinyin || '').toLowerCase().includes(term)
       );
 
       // Sort by search frequency when searching
@@ -274,73 +276,78 @@ export default function Sales() {
       createdAt: new Date().toISOString()
     };
 
-    // 1. Save Order
-    await db.orders.add(order);
+    try {
+      // 1. Save Order
+      await db.orders.add(order);
 
-    // 2. Update Stock
-    for (const item of cart) {
-      const product = await db.products.get(item.productId);
-      if (product) {
-        const newStock = product.stock - item.quantity;
-        await db.products.update(item.productId, { 
-          stock: newStock
-        });
+      // 2. Update Stock
+      for (const item of cart) {
+        const product = await db.products.get(item.productId);
+        if (product) {
+          const newStock = product.stock - item.quantity;
+          await db.products.update(item.productId, { 
+            stock: newStock
+          });
+          
+          // Record stock movement
+          await db.stockMovements.add({
+            productId: item.productId,
+            productName: item.name,
+            type: '销售',
+            quantity: -item.quantity,
+            previousStock: product.stock,
+            currentStock: newStock,
+            reason: `销售开单: ${orderNo}`,
+            operator: '管理员',
+            createdAt: new Date().toISOString()
+          });
+        }
+      }
+
+      // 3. Update Customer Debt/Spent/Buckets
+      if (selectedCustomer) {
+        // 现结冲抵欠款，挂账则累加欠款
+        // newDebt = oldDebt + (finalAmount - receivedAmount)
+        const diff = finalAmount - receivedAmount;
+        const newDebt = Math.max(0, selectedCustomer.debt + diff);
+        const newSpent = selectedCustomer.totalSpent + finalAmount;
+        const newBucketsOut = (selectedCustomer.bucketsOut || 0) + bucketsOut;
+        const newBucketsIn = (selectedCustomer.bucketsIn || 0) + bucketsIn;
         
-        // Record stock movement
-        await db.stockMovements.add({
-          productId: item.productId,
-          productName: item.name,
-          type: '销售',
-          quantity: -item.quantity,
-          previousStock: product.stock,
-          currentStock: newStock,
-          reason: `销售开单: ${orderNo}`,
-          operator: '管理员',
-          createdAt: new Date().toISOString()
+        await db.customers.update(selectedCustomer.id!, { 
+          debt: newDebt, 
+          totalSpent: newSpent,
+          bucketsOut: newBucketsOut,
+          bucketsIn: newBucketsIn
         });
       }
-    }
 
-    // 3. Update Customer Debt/Spent/Buckets
-    if (selectedCustomer) {
-      // 现结冲抵欠款，挂账则累加欠款
-      // newDebt = oldDebt + (finalAmount - receivedAmount)
-      const diff = finalAmount - receivedAmount;
-      const newDebt = Math.max(0, selectedCustomer.debt + diff);
-      const newSpent = selectedCustomer.totalSpent + finalAmount;
-      const newBucketsOut = (selectedCustomer.bucketsOut || 0) + bucketsOut;
-      const newBucketsIn = (selectedCustomer.bucketsIn || 0) + bucketsIn;
-      
-      await db.customers.update(selectedCustomer.id!, { 
-        debt: newDebt, 
-        totalSpent: newSpent,
-        bucketsOut: newBucketsOut,
-        bucketsIn: newBucketsIn
+      // 4. Log
+      await db.logs.add({
+        user: '管理员',
+        action: '销售开单',
+        details: `开具单据 ${orderNo}，金额 ¥${finalAmount}，客户: ${order.customerName}`,
+        createdAt: new Date().toISOString()
       });
+
+      setLastOrderNo(orderNo);
+      setIsOrderSuccess(true);
+      
+      // 5. Print if requested
+      if (shouldPrint) {
+        window.dispatchEvent(new CustomEvent('app-print-order', { detail: order }));
+      }
+
+      setCart([]);
+      setSelectedCustomer(null);
+      setDiscount(0);
+      setBucketsOut(0);
+      setBucketsIn(0);
+      setIsCheckoutOpen(false);
+    } catch (error) {
+      console.error('Checkout Error:', error);
+      alert('保存订单失败，请重试');
     }
-
-    // 4. Log
-    await db.logs.add({
-      user: '管理员',
-      action: '销售开单',
-      details: `开具单据 ${orderNo}，金额 ¥${finalAmount}，客户: ${order.customerName}`,
-      createdAt: new Date().toISOString()
-    });
-
-    setLastOrderNo(orderNo);
-    setIsOrderSuccess(true);
-    
-    // 5. Print if requested
-    if (shouldPrint) {
-      window.dispatchEvent(new CustomEvent('app-print-order', { detail: order }));
-    }
-
-    setCart([]);
-    setSelectedCustomer(null);
-    setDiscount(0);
-    setBucketsOut(0);
-    setBucketsIn(0);
-    setIsCheckoutOpen(false);
   };
 
   return (
