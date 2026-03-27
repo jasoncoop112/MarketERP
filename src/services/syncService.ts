@@ -5,20 +5,44 @@
 
 import { ID, Query } from 'appwrite';
 import { db } from '../db';
-import { databases, DATABASE_ID, COLLECTIONS, storage, BUCKET_ID } from '../appwrite';
+import { databases, DATABASE_ID, COLLECTIONS, storage, BUCKET_ID, account } from '../appwrite';
 import type { Product, Customer, Order, OperationLog, StockMovement } from '../types';
 
 class SyncService {
     private isSyncing = false;
+    private sessionInitialized = false;
 
-    async checkConnection(): Promise<{ database: boolean; storage: boolean }> {
-        const status = { database: false, storage: false };
+    private async initSession() {
+        if (this.sessionInitialized) return;
+        try {
+            // Check if session already exists
+            await account.get();
+            this.sessionInitialized = true;
+        } catch (error) {
+            try {
+                // Create anonymous session if none exists
+                await account.createAnonymousSession();
+                this.sessionInitialized = true;
+                console.log('Appwrite Anonymous Session Created');
+            } catch (sessionError) {
+                console.error('Appwrite Session Initialization Failed:', sessionError);
+            }
+        }
+    }
+
+    async checkConnection(): Promise<{ database: boolean; storage: boolean; error?: string }> {
+        const status = { database: false, storage: false, error: '' };
+        await this.initSession();
         try {
             // Try to list documents from products collection as a test
             await databases.listDocuments(DATABASE_ID, COLLECTIONS.PRODUCTS, [Query.limit(1)]);
             status.database = true;
-        } catch (error) {
+        } catch (error: any) {
             console.error('Appwrite Database Connection Failed:', error);
+            status.error = error.message || String(error);
+            if (status.error.includes('Failed to fetch')) {
+                status.error = '网络连接失败 (Failed to fetch). 请检查: 1. Appwrite 后台是否添加了当前域名到 Web Platforms; 2. Project ID 是否正确; 3. 网络是否通畅。';
+            }
         }
 
         try {
@@ -35,6 +59,7 @@ class SyncService {
     async syncAll() {
         if (this.isSyncing) return;
         this.isSyncing = true;
+        await this.initSession();
 
         try {
             // Sync each table independently to prevent one failure from stopping others
@@ -94,13 +119,26 @@ class SyncService {
 
                         if (item.appwriteId) {
                             await databases.updateDocument(DATABASE_ID, collectionId, item.appwriteId, this.prepareForAppwrite(data))
+                                .then(() => {
+                                    console.log(`Sync Update Success [${tableName}]: ${item.appwriteId}`);
+                                })
                                 .catch((err) => {
                                     console.error(`Sync Update Error [${tableName}]:`, err);
+                                    if (err.message?.includes('Failed to fetch')) {
+                                        console.error('CRITICAL: Failed to fetch during update. Check CORS/Domain settings in Appwrite.');
+                                    }
                                 });
                         } else {
                             const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), this.prepareForAppwrite(data))
+                                .then((res) => {
+                                    console.log(`Sync Create Success [${tableName}]: ${res.$id}`);
+                                    return res;
+                                })
                                 .catch((err) => {
                                     console.error(`Sync Create Error [${tableName}]:`, err);
+                                    if (err.message?.includes('Failed to fetch')) {
+                                        console.error('CRITICAL: Failed to fetch during create. Check CORS/Domain settings in Appwrite.');
+                                    }
                                     return null;
                                 });
                             if (doc) {
