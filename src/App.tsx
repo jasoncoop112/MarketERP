@@ -207,11 +207,14 @@ export default function App() {
   // Auto-sync every 30 seconds
   useEffect(() => {
     const doSync = async () => {
+      console.log('Auto-sync started...');
       setSyncStatus('syncing');
       try {
         await syncService.syncAll();
+        console.log('Auto-sync completed successfully');
         setSyncStatus('idle');
       } catch (error) {
+        console.error('Auto-sync failed:', error);
         setSyncStatus('error');
       }
     };
