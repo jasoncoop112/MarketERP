@@ -17,7 +17,7 @@ export class MyDatabase extends Dexie {
   syncStatus!: Table<{ key: string; lastSync: string }>;
 
   constructor() {
-    super('FrozenFoodERP');
+    super('FrozenFoodERP_V2');
     this.version(1).stores({
       products: '++id, code, name, pinyin, category',
       customers: '++id, name, phone',
@@ -34,9 +34,9 @@ export class MyDatabase extends Dexie {
       syncStatus: 'key',
     });
     this.version(3).stores({
-      products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId',
-      customers: '++id, name, phone, updatedAt, isDeleted, appwriteId',
-      orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId',
+      products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId, isTest',
+      customers: '++id, name, phone, updatedAt, isDeleted, appwriteId, isTest',
+      orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId, isTest',
       logs: '++id, user, action, createdAt, updatedAt, isDeleted, appwriteId',
       stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
       repayments: '++id, customerId, customerName, method, createdAt, updatedAt, isDeleted, appwriteId',

@@ -5,6 +5,7 @@
 
 export interface Product {
   id?: number;
+  isTest?: boolean;
   appwriteId?: string;
   updatedAt?: string;
   isDeleted?: boolean;
@@ -29,6 +30,7 @@ export interface Product {
 
 export interface Customer {
   id?: number;
+  isTest?: boolean;
   appwriteId?: string;
   updatedAt?: string;
   isDeleted?: boolean;
@@ -54,6 +56,7 @@ export interface OrderItem {
 
 export interface Order {
   id?: number;
+  isTest?: boolean;
   appwriteId?: string;
   updatedAt?: string;
   isDeleted?: boolean;
