@@ -76,6 +76,7 @@ class SyncService {
 
             if (localChanges && localChanges.length > 0) {
                 for (const item of localChanges) {
+                    if ((item as any).isTest) continue; // Skip test data sync
                     try {
                         const data = { ...item };
                         const id = data.id;
