@@ -49,7 +49,11 @@ export default function SettingsView({ userRole }: SettingsProps) {
     try {
       const status = await syncService.checkConnection();
       setConnectionStatus(status);
+      if (!status.database || !status.storage) {
+        console.warn('Appwrite connection check failed. Current origin:', window.location.origin);
+      }
     } catch (error: any) {
+      console.error('Connection check failed:', error);
       setConnectionStatus({ database: false, storage: false, error: error.message || String(error) });
     } finally {
       setIsCheckingConnection(false);
@@ -290,7 +294,27 @@ export default function SettingsView({ userRole }: SettingsProps) {
                       <X size={12} /> 连接失败
                     </span>
                     {connectionStatus.error && (
-                      <p className="text-[9px] text-rose-400 mt-1 max-w-[200px] leading-tight">{connectionStatus.error}</p>
+                      <div className="mt-2 text-right">
+                        <p className="text-[9px] text-rose-400 leading-tight break-all">{connectionStatus.error}</p>
+                        {connectionStatus.error.includes('Failed to fetch') && (
+                          <div className="mt-2 p-2 bg-rose-50 rounded-lg border border-rose-100 text-left">
+                            <p className="text-[9px] text-rose-600 mb-1 font-bold">域名未授权 (CORS Error)</p>
+                            <p className="text-[8px] text-rose-500 mb-2 leading-tight">请在 Appwrite 后台 -> Settings -> Platforms -> Web App 中添加以下域名：</p>
+                            <div className="flex items-center gap-1">
+                              <code className="text-[8px] bg-white px-1 py-0.5 rounded border border-rose-200 flex-1 truncate">{window.location.origin}</code>
+                              <button 
+                                onClick={() => {
+                                  navigator.clipboard.writeText(window.location.origin);
+                                  alert('域名已复制');
+                                }}
+                                className="text-[8px] text-indigo-600 font-bold hover:underline"
+                              >
+                                复制
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
