@@ -18,21 +18,46 @@ class SyncService {
             // Check if session already exists
             await account.get();
             this.sessionInitialized = true;
-        } catch (error) {
+            console.log('Appwrite Session Active');
+        } catch (error: any) {
+            const isNetworkError = error.message?.includes('Failed to fetch') || String(error).includes('Failed to fetch');
+            
+            if (isNetworkError) {
+                const currentOrigin = window.location.origin;
+                console.error(`Appwrite Network Error: Failed to fetch. 
+                    This is likely a CORS/Domain issue. 
+                    Please ensure ${currentOrigin} is added to your Appwrite Project Platforms.`);
+                // We don't return early here, we still try createAnonymousSession just in case, 
+                // but it will likely fail with the same error.
+            }
+
             try {
                 // Create anonymous session if none exists
                 await account.createAnonymousSession();
                 this.sessionInitialized = true;
                 console.log('Appwrite Anonymous Session Created');
-            } catch (sessionError) {
+            } catch (sessionError: any) {
                 console.error('Appwrite Session Initialization Failed:', sessionError);
+                if (sessionError.message?.includes('Failed to fetch') || String(sessionError).includes('Failed to fetch')) {
+                    const currentOrigin = window.location.origin;
+                    const msg = `CRITICAL: Failed to fetch. Please add ${currentOrigin} to Appwrite -> Settings -> Platforms -> Web App.`;
+                    console.warn(msg);
+                    throw new Error(msg);
+                }
+                throw sessionError;
             }
         }
     }
 
     async checkConnection(): Promise<{ database: boolean; storage: boolean; error?: string }> {
         const status = { database: false, storage: false, error: '' };
-        await this.initSession();
+        try {
+            await this.initSession();
+        } catch (e: any) {
+            status.error = e.message || String(e);
+            return status;
+        }
+
         try {
             // Try to list documents from products collection as a test
             await databases.listDocuments(DATABASE_ID, COLLECTIONS.PRODUCTS, [Query.limit(1)]);
@@ -41,7 +66,7 @@ class SyncService {
             console.error('Appwrite Database Connection Failed:', error);
             status.error = error.message || String(error);
             if (status.error.includes('Failed to fetch')) {
-                status.error = '网络连接失败 (Failed to fetch). 请检查: 1. Appwrite 后台是否添加了当前域名到 Web Platforms; 2. Project ID 是否正确; 3. 网络是否通畅。';
+                status.error = `网络连接失败 (Failed to fetch). 请检查: 1. Appwrite 后台是否添加了当前域名 ${window.location.origin} 到 Web Platforms; 2. Project ID 是否正确; 3. 网络是否通畅。`;
             }
         }
 
@@ -100,45 +125,30 @@ class SyncService {
                 .catch(() => []);
 
             if (localChanges && localChanges.length > 0) {
+                console.log(`Pushing ${localChanges.length} local changes for [${tableName}]`);
                 for (const item of localChanges) {
                     if ((item as any).isTest) continue; // Skip test data sync
                     try {
-                        const data = { ...item };
-                        const id = data.id;
-                        delete data.id; // Don't send local ID to Appwrite
+                        const id = item.id;
+                        const appwriteId = item.appwriteId;
+                        const data = this.prepareForAppwrite(item);
 
-                        // Special handling for product images
-                        if (tableName === 'products' && data.image && data.image.startsWith('data:image')) {
-                            try {
-                                const fileId = await this.uploadImage(data.image);
-                                data.image = fileId;
-                            } catch (e) {
-                                // If image upload fails, we still try to push the rest of the data
-                            }
-                        }
-
-                        if (item.appwriteId) {
-                            await databases.updateDocument(DATABASE_ID, collectionId, item.appwriteId, this.prepareForAppwrite(data))
+                        if (appwriteId) {
+                            await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, data)
                                 .then(() => {
-                                    console.log(`Sync Update Success [${tableName}]: ${item.appwriteId}`);
+                                    console.log(`Sync Update Success [${tableName}]: ${appwriteId}`);
                                 })
                                 .catch((err) => {
                                     console.error(`Sync Update Error [${tableName}]:`, err);
-                                    if (err.message?.includes('Failed to fetch')) {
-                                        console.error('CRITICAL: Failed to fetch during update. Check CORS/Domain settings in Appwrite.');
-                                    }
                                 });
                         } else {
-                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), this.prepareForAppwrite(data))
+                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), data)
                                 .then((res) => {
                                     console.log(`Sync Create Success [${tableName}]: ${res.$id}`);
                                     return res;
                                 })
                                 .catch((err) => {
                                     console.error(`Sync Create Error [${tableName}]:`, err);
-                                    if (err.message?.includes('Failed to fetch')) {
-                                        console.error('CRITICAL: Failed to fetch during create. Check CORS/Domain settings in Appwrite.');
-                                    }
                                     return null;
                                 });
                             if (doc) {
@@ -146,19 +156,21 @@ class SyncService {
                             }
                         }
                     } catch (error) {
-                        // Silent fail for individual items
+                        console.error(`Item Sync Failed [${tableName}]:`, error);
                     }
                 }
             }
 
             // 2. Pull cloud changes from Appwrite
             try {
+                // Use $updatedAt for Appwrite system attribute query
                 const response = await databases.listDocuments(DATABASE_ID, collectionId, [
-                    Query.greaterThan('updatedAt', lastSync),
-                    Query.limit(100) // Safety limit
+                    Query.greaterThan('$updatedAt', lastSync),
+                    Query.limit(100)
                 ]).catch(() => null);
 
                 if (response && response.documents && response.documents.length > 0) {
+                    console.log(`Pulled ${response.documents.length} cloud changes for [${tableName}]`);
                     for (const doc of response.documents) {
                         try {
                             const appwriteId = doc.$id;
@@ -167,24 +179,22 @@ class SyncService {
                             const data = this.prepareFromAppwrite(doc);
 
                             if (localItem) {
-                                // Conflict resolution: Cloud wins for updates if newer
                                 if (new Date(data.updatedAt) > new Date(localItem.updatedAt)) {
                                     await table.update(localItem.id, data).catch(() => {});
                                 }
                             } else {
-                                // New record from cloud
                                 await table.add(data).catch(() => {});
                             }
                         } catch (e) {
-                            // Silent fail for individual pull items
+                            console.error(`Item Pull Failed [${tableName}]:`, e);
                         }
                     }
                 }
             } catch (error) {
-                // Silent fail for pull
+                console.error(`Pull Error [${tableName}]:`, error);
             }
         } catch (error) {
-            // Silent fail for table sync
+            console.error(`Table Sync Error [${tableName}]:`, error);
         }
     }
 
@@ -200,13 +210,18 @@ class SyncService {
         }
     }
 
-    private prepareForAppwrite(data: any) {
-        const prepared = { ...data };
+    private prepareForAppwrite(item: any) {
+        const data = { ...item };
+        // Remove internal Dexie/Sync fields that are not in Appwrite Schema
+        delete data.id;
+        delete data.appwriteId;
+        delete data.isTest;
+        
         try {
-            if (prepared.history && typeof prepared.history !== 'string') prepared.history = JSON.stringify(prepared.history);
-            if (prepared.items && typeof prepared.items !== 'string') prepared.items = JSON.stringify(prepared.items);
+            if (data.history && typeof data.history !== 'string') data.history = JSON.stringify(data.history);
+            if (data.items && typeof data.items !== 'string') data.items = JSON.stringify(data.items);
         } catch (e) {}
-        return prepared;
+        return data;
     }
 
     private prepareFromAppwrite(doc: any) {
