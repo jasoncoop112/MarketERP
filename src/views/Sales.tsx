@@ -36,8 +36,14 @@ import { format } from 'date-fns';
 import OrderPrintPreview from '../components/OrderPrintPreview';
 
 export default function Sales() {
-  const products = useLiveQuery(() => db.products.where('isDeleted').notEqual(1).toArray()) || [];
-  const customers = useLiveQuery(() => db.customers.where('isDeleted').notEqual(1).toArray()) || [];
+  const products = useLiveQuery(async () => {
+    const all = await db.products.toArray();
+    return all.filter(p => p.isDeleted !== 1);
+  }) || [];
+  const customers = useLiveQuery(async () => {
+    const all = await db.customers.toArray();
+    return all.filter(c => c.isDeleted !== 1);
+  }) || [];
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('全部');
@@ -81,12 +87,7 @@ export default function Sales() {
   };
 
   // Categories
-  const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category));
-    // Filter out unwanted categories
-    const filteredCats = Array.from(cats).filter(cat => cat !== '海鲜类' && cat !== '丸子类');
-    return ['全部', ...filteredCats];
-  }, [products]);
+  const categories = ['全部', '鸡类', '鸭类', '冻品类', '其他'];
 
   // Filter products
   const filteredProducts = useMemo(() => {

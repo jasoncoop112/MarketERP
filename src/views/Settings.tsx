@@ -40,7 +40,7 @@ export default function SettingsView({ userRole }: SettingsProps) {
   const logs = useLiveQuery(() => db.logs.orderBy('createdAt').reverse().limit(50).toArray()) || [];
   const [isBackupSuccess, setIsBackupSuccess] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<{ database: boolean; storage: boolean; error?: string } | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<{ database: boolean; storage: boolean; error?: string; diagnostics?: string[] } | null>(null);
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const lastSync = useLiveQuery(() => db.syncStatus.get('lastSync'));
 
@@ -54,7 +54,7 @@ export default function SettingsView({ userRole }: SettingsProps) {
       }
     } catch (error: any) {
       console.error('Connection check failed:', error);
-      setConnectionStatus({ database: false, storage: false, error: error.message || String(error) });
+      setConnectionStatus({ database: false, storage: false, error: error.message || String(error), diagnostics: ['[!] 严重错误: 无法启动诊断'] });
     } finally {
       setIsCheckingConnection(false);
     }
@@ -161,6 +161,28 @@ export default function SettingsView({ userRole }: SettingsProps) {
       } catch (error) {
         console.error('Clear Logs Error:', error);
         alert('清空日志失败');
+      }
+    }
+  };
+
+  const handleClearAllData = async () => {
+    if (confirm('⚠️ 警告：这将彻底清空本地所有数据（商品、客户、订单、日志等）！此操作不可撤销。确定要继续吗？')) {
+      try {
+        await Promise.all([
+          db.products.clear(),
+          db.customers.clear(),
+          db.orders.clear(),
+          db.logs.clear(),
+          db.stockMovements.clear(),
+          db.repayments.clear(),
+          db.searchHistory.clear(),
+          db.syncStatus.clear()
+        ]);
+        alert('所有本地数据已清空。页面将重新加载以应用更改。');
+        window.location.reload();
+      } catch (error) {
+        console.error('Clear All Data Error:', error);
+        alert('清空数据失败');
       }
     }
   };
@@ -296,10 +318,25 @@ export default function SettingsView({ userRole }: SettingsProps) {
                     {connectionStatus.error && (
                       <div className="mt-2 text-right">
                         <p className="text-[9px] text-rose-400 leading-tight break-all">{connectionStatus.error}</p>
+                        
+                        {/* 诊断日志显示 */}
+                        {connectionStatus.diagnostics && (
+                          <div className="mt-4 p-3 bg-slate-900 rounded-xl text-left font-mono">
+                            <p className="text-[10px] text-slate-400 mb-2 border-b border-slate-800 pb-1">诊断日志 (Diagnostic Logs):</p>
+                            <div className="space-y-1">
+                              {connectionStatus.diagnostics.map((log, idx) => (
+                                <p key={idx} className={`text-[9px] ${log.includes('成功') ? 'text-emerald-400' : log.includes('失败') || log.includes('错误') ? 'text-rose-400' : 'text-slate-300'}`}>
+                                  {log}
+                                </p>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {connectionStatus.error.includes('Failed to fetch') && (
                           <div className="mt-2 p-2 bg-rose-50 rounded-lg border border-rose-100 text-left">
                             <p className="text-[9px] text-rose-600 mb-1 font-bold">域名未授权 (CORS Error)</p>
-                            <p className="text-[8px] text-rose-500 mb-2 leading-tight">请在 Appwrite 后台 -> Settings -> Platforms -> Web App 中添加以下域名：</p>
+                            <p className="text-[8px] text-rose-500 mb-2 leading-tight">请在 Appwrite 后台 → Settings → Platforms → Web App 中添加以下域名：</p>
                             <div className="flex items-center gap-1">
                               <code className="text-[8px] bg-white px-1 py-0.5 rounded border border-rose-200 flex-1 truncate">{window.location.origin}</code>
                               <button 
@@ -389,6 +426,13 @@ export default function SettingsView({ userRole }: SettingsProps) {
               className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest"
             >
               清空日志
+            </button>
+            <button 
+              onClick={handleClearAllData}
+              className="text-xs font-bold text-rose-400 hover:text-rose-600 transition-colors uppercase tracking-widest flex items-center gap-1"
+            >
+              <Trash2 size={12} />
+              重置系统 (清空数据)
             </button>
           </div>
 

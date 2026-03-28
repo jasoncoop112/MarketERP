@@ -42,7 +42,10 @@ import { jsPDF } from 'jspdf';
 import { pinyin } from 'pinyin-pro';
 
 export default function Customers() {
-  const customers = useLiveQuery(() => db.customers.where('isDeleted').notEqual(1).toArray()) || [];
+  const customers = useLiveQuery(async () => {
+    const all = await db.customers.toArray();
+    return all.filter(c => c.isDeleted !== 1);
+  }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
@@ -63,7 +66,7 @@ export default function Customers() {
   const handleDelete = async (id: number) => {
     if (confirm('确定要删除该客户吗？')) {
       try {
-        await db.customers.update(id, { isDeleted: true });
+        await db.customers.update(id, { isDeleted: 1 });
         await db.logs.add({
           user: '管理员',
           action: '删除客户',
@@ -334,7 +337,10 @@ function CustomerHistoryModal({ customer, onClose }: { customer: Customer, onClo
 }
 
 function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: () => void }) {
-  const products = useLiveQuery(() => db.products.toArray()) || [];
+  const products = useLiveQuery(async () => {
+    const all = await db.products.toArray();
+    return all.filter(p => p.isDeleted !== 1);
+  }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [discount, setDiscount] = useState(0);
@@ -743,12 +749,17 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Customer Form Submit Started', formData);
     try {
       if (customer?.id) {
+        console.log('Updating existing customer:', customer.id);
         await db.customers.update(customer.id, formData);
       } else {
-        await db.customers.add(formData as Customer);
+        console.log('Adding new customer');
+        const id = await db.customers.add(formData as Customer);
+        console.log('Customer added with local ID:', id);
       }
+      console.log('Customer save successful, closing modal');
       onClose();
     } catch (error) {
       console.error('Customer Save Error:', error);

@@ -43,7 +43,10 @@ interface ProductsProps {
 }
 
 export default function Products({ userRole }: ProductsProps) {
-  const products = useLiveQuery(() => db.products.where('isDeleted').notEqual(1).toArray()) || [];
+  const products = useLiveQuery(async () => {
+    const all = await db.products.toArray();
+    return all.filter(p => p.isDeleted !== 1);
+  }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('全部');
   const [filterPricingMethod, setFilterPricingMethod] = useState<'all' | 'piece' | 'weight'>('all');
@@ -57,12 +60,7 @@ export default function Products({ userRole }: ProductsProps) {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [stockAction, setStockAction] = useState<'in' | 'out'>('in');
 
-  const categories = useMemo(() => {
-    const cats = new Set(products.map(p => p.category));
-    // Filter out unwanted categories
-    const filteredCats = Array.from(cats).filter(cat => cat !== '海鲜类' && cat !== '丸子类');
-    return ['全部', ...filteredCats];
-  }, [products]);
+  const categories = ['全部', '鸡类', '鸭类', '冻品类', '其他'];
 
   // Filter and sort products
   const filteredProducts = useMemo(() => {
@@ -139,7 +137,7 @@ export default function Products({ userRole }: ProductsProps) {
   const handleDelete = async (id: number) => {
     if (confirm('确定要删除该商品吗？')) {
       try {
-        await db.products.update(id, { isDeleted: true });
+        await db.products.update(id, { isDeleted: 1 });
         await db.logs.add({
           user: '管理员',
           action: '删除商品',
@@ -542,7 +540,7 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
   const [formData, setFormData] = useState<Partial<Product>>(product || {
     code: '',
     name: '',
-    category: '冻品',
+    category: '冻品类',
     purchasePrice: 0,
     wholesalePrice: 0,
     price2: 0,
@@ -708,7 +706,7 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
               >
                 <option>鸡类</option>
                 <option>鸭类</option>
-                <option>冻肉类</option>
+                <option>冻品类</option>
                 <option>其他</option>
               </select>
             </div>

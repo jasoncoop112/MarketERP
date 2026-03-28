@@ -37,10 +37,13 @@ import OrderPrintPreview from '../components/OrderPrintPreview.tsx';
 
 export default function Orders() {
   const orders = useLiveQuery(async () => {
-    const all = await db.orders.where('isDeleted').notEqual(1).toArray();
-    return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const all = await db.orders.toArray();
+    return all.filter(o => o.isDeleted !== 1).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }) || [];
-  const customers = useLiveQuery(() => db.customers.where('isDeleted').notEqual(1).toArray()) || [];
+  const customers = useLiveQuery(async () => {
+    const all = await db.customers.toArray();
+    return all.filter(c => c.isDeleted !== 1);
+  }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom' | 'all'>('all');
   const [startDate, setStartDate] = useState('');
@@ -124,7 +127,7 @@ export default function Orders() {
     if (window.confirm('确定要删除这条订单记录吗？')) {
       try {
         const now = new Date().toISOString();
-        await db.orders.update(id, { isDeleted: true });
+        await db.orders.update(id, { isDeleted: 1 });
         await db.logs.add({
           user: '管理员',
           action: '删除订单',

@@ -30,9 +30,18 @@ import {
 import { format, startOfDay, subDays, isSameDay } from 'date-fns';
 
 export default function Dashboard() {
-  const products = useLiveQuery(() => db.products.where('isDeleted').notEqual(1).toArray()) || [];
-  const orders = useLiveQuery(() => db.orders.where('isDeleted').notEqual(1).toArray()) || [];
-  const customers = useLiveQuery(() => db.customers.where('isDeleted').notEqual(1).toArray()) || [];
+  const products = useLiveQuery(async () => {
+    const all = await db.products.toArray();
+    return all.filter(p => p.isDeleted !== 1);
+  }) || [];
+  const orders = useLiveQuery(async () => {
+    const all = await db.orders.toArray();
+    return all.filter(o => o.isDeleted !== 1);
+  }) || [];
+  const customers = useLiveQuery(async () => {
+    const all = await db.customers.toArray();
+    return all.filter(c => c.isDeleted !== 1);
+  }) || [];
 
   // Stats calculations
   const today = startOfDay(new Date());
