@@ -49,33 +49,54 @@ class SyncService {
         }
     }
 
-    async checkConnection(): Promise<{ database: boolean; storage: boolean; error?: string }> {
-        const status = { database: false, storage: false, error: '' };
+    async checkConnection(): Promise<{ database: boolean; storage: boolean; error?: string; diagnostics?: string[] }> {
+        const status = { database: false, storage: false, error: '', diagnostics: [] as string[] };
+        const origin = window.location.origin;
+        
+        status.diagnostics.push(`[1] 正在检查网络环境... (Origin: ${origin})`);
+        
         try {
             await this.initSession();
+            status.diagnostics.push(`[2] 会话初始化成功 (Session Active)`);
         } catch (e: any) {
-            status.error = e.message || String(e);
+            const errorMsg = e.message || String(e);
+            status.diagnostics.push(`[2] 会话初始化失败: ${errorMsg}`);
+            if (errorMsg.includes('Failed to fetch')) {
+                status.diagnostics.push(`建议: 检查 Appwrite 后台 Settings -> Platforms 是否添加了 ${origin}`);
+            }
+            status.error = errorMsg;
             return status;
         }
 
         try {
+            status.diagnostics.push(`[3] 正在验证数据库 ID: ${DATABASE_ID}...`);
             // Try to list documents from products collection as a test
             await databases.listDocuments(DATABASE_ID, COLLECTIONS.PRODUCTS, [Query.limit(1)]);
             status.database = true;
+            status.diagnostics.push(`[4] 数据库与集合验证成功`);
         } catch (error: any) {
             console.error('Appwrite Database Connection Failed:', error);
-            status.error = error.message || String(error);
-            if (status.error.includes('Failed to fetch')) {
-                status.error = `网络连接失败 (Failed to fetch). 请检查: 1. Appwrite 后台是否添加了当前域名 ${window.location.origin} 到 Web Platforms; 2. Project ID 是否正确; 3. 网络是否通畅。`;
+            const errorMsg = error.message || String(error);
+            status.error = errorMsg;
+            
+            if (errorMsg.includes('Failed to fetch')) {
+                status.diagnostics.push(`[3] 失败: 跨域拦截 (CORS). 请确认后台 Platforms 已添加当前域名。`);
+            } else if (errorMsg.includes('not found')) {
+                status.diagnostics.push(`[3] 失败: ID 错误. 请确认数据库 ID '${DATABASE_ID}' 或集合 ID '${COLLECTIONS.PRODUCTS}' 是否正确。`);
+            } else {
+                status.diagnostics.push(`[3] 失败: ${errorMsg}`);
             }
         }
 
         try {
+            status.diagnostics.push(`[5] 正在验证存储桶 ID: ${BUCKET_ID}...`);
             // Try to list files from storage bucket as a test
             await storage.listFiles(BUCKET_ID, [Query.limit(1)]);
             status.storage = true;
-        } catch (error) {
-            console.error('Appwrite Storage Connection Failed:', error);
+            status.diagnostics.push(`[6] 存储空间验证成功`);
+        } catch (error: any) {
+            const errorMsg = error.message || String(error);
+            status.diagnostics.push(`[5] 存储验证失败: ${errorMsg}`);
         }
 
         return status;
@@ -127,7 +148,6 @@ class SyncService {
             if (localChanges && localChanges.length > 0) {
                 console.log(`Pushing ${localChanges.length} local changes for [${tableName}]`);
                 for (const item of localChanges) {
-                    if ((item as any).isTest) continue; // Skip test data sync
                     try {
                         const id = item.id;
                         const appwriteId = item.appwriteId;
@@ -179,11 +199,13 @@ class SyncService {
                             const data = this.prepareFromAppwrite(doc);
 
                             if (localItem) {
+                                // If localItem exists, only update if cloud is newer
                                 if (new Date(data.updatedAt) > new Date(localItem.updatedAt)) {
                                     await table.update(localItem.id, data).catch(() => {});
                                 }
                             } else {
-                                await table.add(data).catch(() => {});
+                                // For new items, respect cloud isDeleted or default to 0
+                                await table.add({ ...data, isDeleted: data.isDeleted ?? 0 }).catch(() => {});
                             }
                         } catch (e) {
                             console.error(`Item Pull Failed [${tableName}]:`, e);
@@ -215,7 +237,6 @@ class SyncService {
         // Remove internal Dexie/Sync fields that are not in Appwrite Schema
         delete data.id;
         delete data.appwriteId;
-        delete data.isTest;
         
         try {
             if (data.history && typeof data.history !== 'string') data.history = JSON.stringify(data.history);
