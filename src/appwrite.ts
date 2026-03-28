@@ -6,15 +6,15 @@
 import { Client, Databases, Storage, Account } from 'appwrite';
 
 const client = new Client()
-    .setEndpoint('https://cloud.appwrite.io/v1')
-    .setProject('69c4c032002f214af93e');
+    .setEndpoint(import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1')
+    .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID || '69c4c032002f214af93e');
 
 export const databases = new Databases(client);
 export const storage = new Storage(client);
 export const account = new Account(client);
 
-export const DATABASE_ID = 'lengku-db';
-export const BUCKET_ID = 'product-images';
+export const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID || 'lengku-db';
+export const BUCKET_ID = import.meta.env.VITE_APPWRITE_BUCKET_ID || 'product-images';
 
 export const COLLECTIONS = {
     PRODUCTS: 'products',

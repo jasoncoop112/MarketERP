@@ -34,9 +34,9 @@ export class MyDatabase extends Dexie {
       syncStatus: 'key',
     });
     this.version(3).stores({
-      products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId, isTest',
-      customers: '++id, name, phone, updatedAt, isDeleted, appwriteId, isTest',
-      orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId, isTest',
+      products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId',
+      customers: '++id, name, phone, updatedAt, isDeleted, appwriteId',
+      orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId',
       logs: '++id, user, action, createdAt, updatedAt, isDeleted, appwriteId',
       stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
       repayments: '++id, customerId, customerName, method, createdAt, updatedAt, isDeleted, appwriteId',
@@ -46,12 +46,18 @@ export class MyDatabase extends Dexie {
 
     // Auto-set updatedAt on any change
     const setUpdatedAt = (mods: any, primKey: any, obj: any) => {
-      mods.updatedAt = new Date().toISOString();
+      // Only set updatedAt if it's not already being set (prevents sync loops)
+      if (!mods.updatedAt) {
+        mods.updatedAt = new Date().toISOString();
+      }
     };
 
     const setCreatedAt = (primKey: any, obj: any) => {
-      obj.updatedAt = new Date().toISOString();
-      obj.isDeleted = false;
+      if (!obj.updatedAt) {
+        obj.updatedAt = new Date().toISOString();
+      }
+      // Use 0/1 for isDeleted to ensure reliable indexing
+      obj.isDeleted = 0;
     };
 
     ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments', 'searchHistory'].forEach(table => {

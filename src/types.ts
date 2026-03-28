@@ -5,10 +5,9 @@
 
 export interface Product {
   id?: number;
-  isTest?: boolean;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: number | boolean;
   code: string;
   name: string;
   pinyin: string; // For searching
@@ -30,10 +29,9 @@ export interface Product {
 
 export interface Customer {
   id?: number;
-  isTest?: boolean;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: number | boolean;
   name: string;
   phone: string;
   address?: string;
@@ -56,10 +54,9 @@ export interface OrderItem {
 
 export interface Order {
   id?: number;
-  isTest?: boolean;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: number | boolean;
   orderNo: string;
   customerId?: number;
   customerName: string;
@@ -79,7 +76,7 @@ export interface OperationLog {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: number | boolean;
   user: string;
   action: string;
   details: string;
@@ -90,7 +87,7 @@ export interface Repayment {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: number | boolean;
   customerId: number;
   customerName: string;
   amount: number;
@@ -109,7 +106,7 @@ export interface StockMovement {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: boolean;
+  isDeleted?: number | boolean;
   productId: number;
   productName: string;
   type: '入库' | '出库' | '盘点' | '销售' | '退货';
