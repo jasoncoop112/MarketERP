@@ -127,7 +127,11 @@ export default function Orders() {
     if (window.confirm('确定要删除这条订单记录吗？')) {
       try {
         const now = new Date().toISOString();
-        await db.orders.update(id, { isDeleted: 1 });
+        await db.orders.update(id, { 
+          isDeleted: 1,
+          updatedAt: now
+        });
+        await syncService.triggerSync();
         await db.logs.add({
           user: '管理员',
           action: '删除订单',

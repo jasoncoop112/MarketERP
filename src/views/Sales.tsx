@@ -277,7 +277,9 @@ export default function Sales() {
       finalAmount,
       paymentMethod,
       status: paymentMethod === '欠款' ? '待支付' : '已支付',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isDeleted: 0
     };
 
     try {
@@ -292,7 +294,8 @@ export default function Sales() {
         if (product) {
           const newStock = product.stock - item.quantity;
           await db.products.update(item.productId, { 
-            stock: newStock
+            stock: newStock,
+            updatedAt: new Date().toISOString()
           });
           
           // Record stock movement
@@ -325,7 +328,8 @@ export default function Sales() {
           debt: newDebt, 
           totalSpent: newSpent,
           bucketsOut: newBucketsOut,
-          bucketsIn: newBucketsIn
+          bucketsIn: newBucketsIn,
+          updatedAt: new Date().toISOString()
         });
       }
 
@@ -340,6 +344,9 @@ export default function Sales() {
       console.log('Checkout successful');
       setLastOrderNo(orderNo);
       setIsOrderSuccess(true);
+      
+      // Trigger sync
+      await syncService.triggerSync();
       
       // 5. Print if requested
       if (shouldPrint) {

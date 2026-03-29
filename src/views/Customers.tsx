@@ -751,13 +751,22 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
     e.preventDefault();
     console.log('Customer Form Submit Started', formData);
     try {
+      const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
+      const data = { 
+        ...formData, 
+        pinyin: py,
+        updatedAt: new Date().toISOString(),
+        isDeleted: formData.isDeleted || 0
+      } as Customer;
+
       if (customer?.id) {
         console.log('Updating existing customer:', customer.id);
-        await db.customers.update(customer.id, formData);
+        await db.customers.update(customer.id, data);
+        await syncService.triggerSync();
       } else {
         console.log('Adding new customer');
-        const id = await db.customers.add(formData as Customer);
-        console.log('Customer added with local ID:', id);
+        await db.customers.add(data);
+        await syncService.triggerSync();
       }
       console.log('Customer save successful, closing modal');
       onClose();

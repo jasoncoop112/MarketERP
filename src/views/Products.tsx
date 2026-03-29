@@ -579,11 +579,17 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
     console.log('Product Form Submit Started', formData);
     try {
       const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
-      const data = { ...formData, pinyin: py } as Product;
+      const data = { 
+        ...formData, 
+        pinyin: py,
+        updatedAt: new Date().toISOString(),
+        isDeleted: formData.isDeleted || 0
+      } as Product;
       
       if (product?.id) {
         console.log('Updating existing product:', product.id);
         await db.products.put({ ...data, id: product.id });
+        await syncService.triggerSync();
       } else {
         console.log('Adding new product');
         const id = await db.products.add(data);
@@ -601,6 +607,7 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
             createdAt: new Date().toISOString()
           });
         }
+        await syncService.triggerSync();
       }
       
       await db.logs.add({
@@ -850,7 +857,11 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
   });
 
   const handleSave = async () => {
-    await db.products.update(product.id!, prices);
+    await db.products.update(product.id!, {
+      ...prices,
+      updatedAt: new Date().toISOString()
+    });
+    await syncService.triggerSync();
     await db.logs.add({
       user: '管理员',
       action: '快速调价',
