@@ -105,10 +105,11 @@ class SyncService {
     async syncAll() {
         if (this.isSyncing) return;
         this.isSyncing = true;
-        await this.initSession();
-
+        console.log('🔄 开始全量同步...');
+        
         try {
-            // Sync each table independently to prevent one failure from stopping others
+            await this.initSession();
+
             const tables: [keyof typeof db, string][] = [
                 ['products', COLLECTIONS.PRODUCTS],
                 ['customers', COLLECTIONS.CUSTOMERS],
@@ -119,105 +120,120 @@ class SyncService {
             ];
 
             for (const [tableName, collectionId] of tables) {
-                await this.syncTable(tableName, collectionId).catch(() => {});
+                try {
+                    await this.syncTable(tableName, collectionId);
+                } catch (tableError) {
+                    console.error(`❌ [${tableName}] 同步失败:`, tableError);
+                }
             }
             
-            await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() }).catch(() => {});
+            console.log('✅ 全量同步完成');
         } catch (error) {
-            // Silent fail for syncAll
+            console.error('❌ 同步服务异常:', error);
         } finally {
             this.isSyncing = false;
         }
     }
 
     private async syncTable(tableName: keyof typeof db, collectionId: string) {
-        try {
-            const table = db[tableName] as any;
-            if (!table) return;
+        const table = db[tableName] as any;
+        if (!table) return;
 
-            const lastSyncState = await db.syncStatus.get('lastSync').catch(() => null);
-            const lastSync = lastSyncState?.lastSync || new Date(0).toISOString();
+        // 获取该表上次同步的时间，如果没有则从 2000 年开始
+        const syncKey = `lastSync_${tableName}`;
+        const lastSyncState = await db.syncStatus.get(syncKey).catch(() => null);
+        
+        // 关键修复：拉取时稍微往前推 5 分钟，防止服务器时间差导致漏单
+        const lastSyncDate = lastSyncState?.lastSync ? new Date(lastSyncState.lastSync) : new Date(0);
+        const pullStartTime = new Date(lastSyncDate.getTime() - 5 * 60 * 1000).toISOString();
 
-            // 1. Push local changes to Appwrite
-            const localChanges = await table
-                .where('updatedAt')
-                .above(lastSync)
-                .toArray()
-                .catch(() => []);
+        console.log(`--- 同步 [${tableName}] (上次同步: ${lastSyncState?.lastSync || '从未'}) ---`);
 
-            if (localChanges && localChanges.length > 0) {
-                console.log(`Pushing ${localChanges.length} local changes for [${tableName}]`);
-                for (const item of localChanges) {
-                    try {
-                        const id = item.id;
-                        const appwriteId = item.appwriteId;
-                        const data = this.prepareForAppwrite(item);
+        // 1. 推送本地变更 (updatedAt > lastSync)
+        const localChanges = await table
+            .where('updatedAt')
+            .above(lastSyncState?.lastSync || new Date(0).toISOString())
+            .toArray()
+            .catch(() => []);
 
-                        if (appwriteId) {
-                            await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, data)
-                                .then(() => {
-                                    console.log(`Sync Update Success [${tableName}]: ${appwriteId}`);
-                                })
-                                .catch((err) => {
-                                    console.error(`Sync Update Error [${tableName}]:`, err);
-                                });
-                        } else {
-                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), data)
-                                .then((res) => {
-                                    console.log(`Sync Create Success [${tableName}]: ${res.$id}`);
-                                    return res;
-                                })
-                                .catch((err) => {
-                                    console.error(`Sync Create Error [${tableName}]:`, err);
-                                    return null;
-                                });
-                            if (doc) {
-                                await table.update(id, { appwriteId: doc.$id }).catch(() => {});
+        if (localChanges.length > 0) {
+            console.log(`⬆️ 正在推送 ${localChanges.length} 条本地变更...`);
+            for (const item of localChanges) {
+                try {
+                    const { id, appwriteId, ...data } = item;
+                    const preparedData = this.prepareForAppwrite(data);
+
+                    if (appwriteId) {
+                        await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, preparedData);
+                    } else {
+                        // 尝试通过业务 ID 匹配云端（防止重复创建）
+                        let existingDocId = null;
+                        if (data.orderNo || data.code || data.name) {
+                            const searchField = data.orderNo ? 'orderNo' : (data.code ? 'code' : 'name');
+                            const searchValue = data.orderNo || data.code || data.name;
+                            const existing = await databases.listDocuments(DATABASE_ID, collectionId, [
+                                Query.equal(searchField, searchValue),
+                                Query.limit(1)
+                            ]).catch(() => null);
+                            
+                            if (existing && existing.documents.length > 0) {
+                                existingDocId = existing.documents[0].$id;
                             }
                         }
-                    } catch (error) {
-                        console.error(`Item Sync Failed [${tableName}]:`, error);
+
+                        if (existingDocId) {
+                            await databases.updateDocument(DATABASE_ID, collectionId, existingDocId, preparedData);
+                            await table.update(id, { appwriteId: existingDocId });
+                        } else {
+                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), preparedData);
+                            await table.update(id, { appwriteId: doc.$id });
+                        }
                     }
+                } catch (err) {
+                    console.error(`推送失败 [${tableName}]:`, err);
                 }
             }
+        }
 
-            // 2. Pull cloud changes from Appwrite
-            try {
-                // Use $updatedAt for Appwrite system attribute query
-                const response = await databases.listDocuments(DATABASE_ID, collectionId, [
-                    Query.greaterThan('$updatedAt', lastSync),
-                    Query.limit(100)
-                ]).catch(() => null);
+        // 2. 拉取云端变更 ($updatedAt > pullStartTime)
+        try {
+            const response = await databases.listDocuments(DATABASE_ID, collectionId, [
+                Query.greaterThan('$updatedAt', pullStartTime),
+                Query.limit(100)
+            ]).catch(() => null);
 
-                if (response && response.documents && response.documents.length > 0) {
-                    console.log(`Pulled ${response.documents.length} cloud changes for [${tableName}]`);
-                    for (const doc of response.documents) {
-                        try {
-                            const appwriteId = doc.$id;
-                            const localItem = await table.where('appwriteId').equals(appwriteId).first().catch(() => null);
+            if (response && response.documents.length > 0) {
+                console.log(`⬇️ 正在拉取 ${response.documents.length} 条云端变更...`);
+                for (const doc of response.documents) {
+                    try {
+                        const appwriteId = doc.$id;
+                        const data = this.prepareFromAppwrite(doc);
+                        
+                        // 匹配本地记录
+                        const localItem = await table.where('appwriteId').equals(appwriteId).first()
+                            || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
+                            || (data.code ? await table.where('code').equals(data.code).first() : null);
 
-                            const data = this.prepareFromAppwrite(doc);
-
-                            if (localItem) {
-                                // If localItem exists, only update if cloud is newer
-                                if (new Date(data.updatedAt) > new Date(localItem.updatedAt)) {
-                                    await table.update(localItem.id, data).catch(() => {});
-                                }
-                            } else {
-                                // For new items, respect cloud isDeleted or default to 0
-                                await table.add({ ...data, isDeleted: data.isDeleted ?? 0 }).catch(() => {});
+                        if (localItem) {
+                            // 云端较新才更新本地
+                            if (new Date(doc.$updatedAt) > new Date(localItem.updatedAt)) {
+                                await table.update(localItem.id, { ...data, appwriteId });
                             }
-                        } catch (e) {
-                            console.error(`Item Pull Failed [${tableName}]:`, e);
+                        } else {
+                            // 本地没有，直接新增
+                            await table.add({ ...data, appwriteId, isDeleted: data.isDeleted ?? 0 });
                         }
+                    } catch (e) {
+                        console.error(`拉取单条失败 [${tableName}]:`, e);
                     }
                 }
-            } catch (error) {
-                console.error(`Pull Error [${tableName}]:`, error);
             }
         } catch (error) {
-            console.error(`Table Sync Error [${tableName}]:`, error);
+            console.error(`拉取失败 [${tableName}]:`, error);
         }
+
+        // 更新该表的同步时间
+        await db.syncStatus.put({ key: syncKey, lastSync: new Date().toISOString() });
     }
 
     private async uploadImage(base64: string): Promise<string> {
