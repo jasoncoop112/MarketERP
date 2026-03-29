@@ -46,6 +46,9 @@ export default function SettingsView({ userRole }: SettingsProps) {
 
   const handleCheckConnection = async () => {
     setIsCheckingConnection(true);
+    const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1';
+    const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID || '69c4c032002f214af93e';
+    
     try {
       const status = await syncService.checkConnection();
       setConnectionStatus(status);
@@ -54,7 +57,17 @@ export default function SettingsView({ userRole }: SettingsProps) {
       }
     } catch (error: any) {
       console.error('Connection check failed:', error);
-      setConnectionStatus({ database: false, storage: false, error: error.message || String(error), diagnostics: ['[!] 严重错误: 无法启动诊断'] });
+      setConnectionStatus({ 
+        database: false, 
+        storage: false, 
+        error: error.message || String(error), 
+        diagnostics: [
+          `[!] 严重错误: ${error.message || String(error)}`,
+          `[D] Endpoint: ${endpoint}`,
+          `[D] Project ID: ${projectId}`,
+          `[D] Origin: ${window.location.origin}`
+        ] 
+      });
     } finally {
       setIsCheckingConnection(false);
     }
