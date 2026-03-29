@@ -8,48 +8,29 @@ import { db } from '../db';
 import { databases, DATABASE_ID, COLLECTIONS, storage, BUCKET_ID, account } from '../appwrite';
 import type { Product, Customer, Order, OperationLog, StockMovement } from '../types';
 
-class SyncService {
-    private isSyncing = false;
-    private sessionInitialized = false;
+export class SyncService {
+    private static isSyncing = false;
+    private static sessionInitialized = false;
 
-    private async initSession() {
+    private static async initSession() {
         if (this.sessionInitialized) return;
         try {
-            // Check if session already exists
             await account.get();
             this.sessionInitialized = true;
             console.log('Appwrite Session Active');
         } catch (error: any) {
-            const isNetworkError = error.message?.includes('Failed to fetch') || String(error).includes('Failed to fetch');
-            
-            if (isNetworkError) {
-                const currentOrigin = window.location.origin;
-                console.error(`Appwrite Network Error: Failed to fetch. 
-                    This is likely a CORS/Domain issue. 
-                    Please ensure ${currentOrigin} is added to your Appwrite Project Platforms.`);
-                // We don't return early here, we still try createAnonymousSession just in case, 
-                // but it will likely fail with the same error.
-            }
-
             try {
-                // Create anonymous session if none exists
                 await account.createAnonymousSession();
                 this.sessionInitialized = true;
                 console.log('Appwrite Anonymous Session Created');
             } catch (sessionError: any) {
                 console.error('Appwrite Session Initialization Failed:', sessionError);
-                if (sessionError.message?.includes('Failed to fetch') || String(sessionError).includes('Failed to fetch')) {
-                    const currentOrigin = window.location.origin;
-                    const msg = `CRITICAL: Failed to fetch. Please add ${currentOrigin} to Appwrite -> Settings -> Platforms -> Web App.`;
-                    console.warn(msg);
-                    throw new Error(msg);
-                }
                 throw sessionError;
             }
         }
     }
 
-    async checkConnection(): Promise<{ database: boolean; storage: boolean; error?: string; diagnostics?: string[] }> {
+    static async checkConnection(): Promise<{ database: boolean; storage: boolean; error?: string; diagnostics?: string[] }> {
         const status = { database: false, storage: false, error: '', diagnostics: [] as string[] };
         const origin = window.location.origin;
         
@@ -61,16 +42,12 @@ class SyncService {
         } catch (e: any) {
             const errorMsg = e.message || String(e);
             status.diagnostics.push(`[2] 会话初始化失败: ${errorMsg}`);
-            if (errorMsg.includes('Failed to fetch')) {
-                status.diagnostics.push(`建议: 检查 Appwrite 后台 Settings -> Platforms 是否添加了 ${origin}`);
-            }
             status.error = errorMsg;
             return status;
         }
 
         try {
             status.diagnostics.push(`[3] 正在验证数据库 ID: ${DATABASE_ID}...`);
-            // Try to list documents from products collection as a test
             await databases.listDocuments(DATABASE_ID, COLLECTIONS.PRODUCTS, [Query.limit(1)]);
             status.database = true;
             status.diagnostics.push(`[4] 数据库与集合验证成功`);
@@ -78,19 +55,11 @@ class SyncService {
             console.error('Appwrite Database Connection Failed:', error);
             const errorMsg = error.message || String(error);
             status.error = errorMsg;
-            
-            if (errorMsg.includes('Failed to fetch')) {
-                status.diagnostics.push(`[3] 失败: 跨域拦截 (CORS). 请确认后台 Platforms 已添加当前域名。`);
-            } else if (errorMsg.includes('not found')) {
-                status.diagnostics.push(`[3] 失败: ID 错误. 请确认数据库 ID '${DATABASE_ID}' 或集合 ID '${COLLECTIONS.PRODUCTS}' 是否正确。`);
-            } else {
-                status.diagnostics.push(`[3] 失败: ${errorMsg}`);
-            }
+            status.diagnostics.push(`[3] 失败: ${errorMsg}`);
         }
 
         try {
             status.diagnostics.push(`[5] 正在验证存储桶 ID: ${BUCKET_ID}...`);
-            // Try to list files from storage bucket as a test
             await storage.listFiles(BUCKET_ID, [Query.limit(1)]);
             status.storage = true;
             status.diagnostics.push(`[6] 存储空间验证成功`);
@@ -102,7 +71,7 @@ class SyncService {
         return status;
     }
 
-    async syncAll() {
+    static async syncAll() {
         if (this.isSyncing) return;
         this.isSyncing = true;
         console.log('🔄 开始全量同步...');
@@ -110,7 +79,7 @@ class SyncService {
         try {
             await this.initSession();
 
-            const tables: [keyof typeof db, string][] = [
+            const tables: [string, string][] = [
                 ['products', COLLECTIONS.PRODUCTS],
                 ['customers', COLLECTIONS.CUSTOMERS],
                 ['orders', COLLECTIONS.ORDERS],
@@ -122,8 +91,12 @@ class SyncService {
             for (const [tableName, collectionId] of tables) {
                 try {
                     await this.syncTable(tableName, collectionId);
-                } catch (tableError) {
-                    console.error(`❌ [${tableName}] 同步失败:`, tableError);
+                } catch (tableError: any) {
+                    if (tableError.code === 404) {
+                        console.warn(`⚠️ 集合 [${collectionId}] 不存在，已跳过。`);
+                    } else {
+                        console.error(`❌ [${tableName}] 同步失败:`, tableError);
+                    }
                 }
             }
             
@@ -135,8 +108,8 @@ class SyncService {
         }
     }
 
-    private async syncTable(tableName: keyof typeof db, collectionId: string) {
-        const table = db[tableName] as any;
+    private static async syncTable(tableName: string, collectionId: string) {
+        const table = (db as any)[tableName];
         if (!table) return;
 
         // 获取该表上次同步的时间，如果没有则从 2000 年开始
@@ -248,11 +221,12 @@ class SyncService {
         }
     }
 
-    private prepareForAppwrite(item: any) {
+    private static prepareForAppwrite(item: any) {
         const data = { ...item };
         // Remove internal Dexie/Sync fields that are not in Appwrite Schema
         delete data.id;
         delete data.appwriteId;
+        delete data.sync_status;
         
         try {
             if (data.history && typeof data.history !== 'string') data.history = JSON.stringify(data.history);
@@ -261,7 +235,7 @@ class SyncService {
         return data;
     }
 
-    private prepareFromAppwrite(doc: any) {
+    private static prepareFromAppwrite(doc: any) {
         const { $id, $permissions, $collectionId, $databaseId, $createdAt, $updatedAt, ...data } = doc;
         const prepared = { 
             ...data, 
@@ -276,4 +250,4 @@ class SyncService {
     }
 }
 
-export const syncService = new SyncService();
+export const syncService = SyncService;
