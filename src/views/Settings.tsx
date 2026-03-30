@@ -77,7 +77,8 @@ export default function SettingsView({ userRole }: SettingsProps) {
     setIsSyncing(true);
     try {
       await syncService.syncAll();
-      alert('同步成功！');
+      // 使用 toast 或其他非阻塞 UI
+      console.log('Manual sync successful');
     } catch (error: any) {
       const results = syncService.getLastSyncResults();
       const failedDetails = Object.entries(results)
@@ -85,7 +86,7 @@ export default function SettingsView({ userRole }: SettingsProps) {
         .map(([name, res]) => `${name}: ${res.error}`)
         .join('\n');
       
-      alert(`同步失败！\n\n失败详情:\n${failedDetails || error.message}`);
+      console.error('Manual sync failed:', failedDetails || error.message);
     } finally {
       setIsSyncing(false);
     }

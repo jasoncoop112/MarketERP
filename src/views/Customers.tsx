@@ -757,7 +757,13 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
     setIsSaving(true);
     console.log('Customer Form Submit Started', formData);
     try {
-      const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
+      // 增强拼音生成，处理数字和特殊字符
+      const py = pinyin(formData.name || '', { 
+        pattern: 'initial', 
+        toneType: 'none',
+        nonZh: 'consecutive'
+      }).replace(/\s/g, '').toLowerCase();
+
       const data = { 
         ...formData, 
         pinyin: py,
