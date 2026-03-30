@@ -11,6 +11,11 @@ import type { Product, Customer, Order, OperationLog, StockMovement } from '../t
 export class SyncService {
     private static isSyncing = false;
     private static sessionInitialized = false;
+    private static lastSyncResults: Record<string, { success: boolean; error?: string }> = {};
+
+    static getLastSyncResults() {
+        return this.lastSyncResults;
+    }
 
     private static async initSession() {
         if (this.sessionInitialized) return;
@@ -82,6 +87,7 @@ export class SyncService {
         this.isSyncing = true;
         console.log('🔄 开始全量同步...');
         let hasError = false;
+        const results: Record<string, { success: boolean; error?: string }> = {};
         
         try {
             await this.initSession();
@@ -97,9 +103,15 @@ export class SyncService {
 
             for (const [tableName, collectionId] of tables) {
                 try {
+                    console.log(`Syncing table: ${tableName}...`);
                     await this.syncTable(tableName, collectionId);
+                    results[tableName] = { success: true };
+                    console.log(`Successfully synced table: ${tableName}`);
                 } catch (tableError: any) {
                     hasError = true;
+                    const errorMsg = tableError.message || String(tableError);
+                    results[tableName] = { success: false, error: errorMsg };
+                    
                     if (tableError.code === 404) {
                         console.warn(`⚠️ 集合 [${collectionId}] 不存在，已跳过。`);
                     } else if (tableError.code === 401) {
@@ -110,9 +122,17 @@ export class SyncService {
                 }
             }
             
+            this.lastSyncResults = results;
+            
             if (hasError) {
-                throw new Error('部分数据表同步失败，请检查权限设置');
+                const failedTables = Object.entries(results)
+                    .filter(([_, res]) => !res.success)
+                    .map(([name, _]) => name)
+                    .join(', ');
+                throw new Error(`部分数据表同步失败: ${failedTables}`);
             }
+            
+            await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
             console.log('✅ 全量同步完成');
         } catch (error) {
             console.error('❌ 同步服务异常:', error);
