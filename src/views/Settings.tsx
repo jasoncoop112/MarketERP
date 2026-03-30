@@ -78,8 +78,14 @@ export default function SettingsView({ userRole }: SettingsProps) {
     try {
       await syncService.syncAll();
       alert('同步成功！');
-    } catch (error) {
-      alert('同步失败，请检查网络连接');
+    } catch (error: any) {
+      const results = syncService.getLastSyncResults();
+      const failedDetails = Object.entries(results)
+        .filter(([_, res]) => !res.success)
+        .map(([name, res]) => `${name}: ${res.error}`)
+        .join('\n');
+      
+      alert(`同步失败！\n\n失败详情:\n${failedDetails || error.message}`);
     } finally {
       setIsSyncing(false);
     }

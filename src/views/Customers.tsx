@@ -60,7 +60,8 @@ export default function Customers() {
     const term = searchTerm.toLowerCase();
     return customers.filter(c => 
       c.name.toLowerCase().includes(term) || 
-      c.phone.includes(term)
+      c.phone.includes(term) ||
+      c.pinyin?.toLowerCase().includes(term)
     );
   }, [customers, searchTerm]);
 

@@ -836,15 +836,24 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
             <button 
               type="button"
               onClick={onClose}
-              className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+              disabled={isSaving}
+              className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all disabled:opacity-50"
             >
               取消
             </button>
             <button 
               type="submit"
-              className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
+              disabled={isSaving}
+              className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              保存商品
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>正在保存...</span>
+                </>
+              ) : (
+                <span>保存商品</span>
+              )}
             </button>
           </div>
         </form>
