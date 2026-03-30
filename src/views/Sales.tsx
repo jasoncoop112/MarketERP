@@ -56,6 +56,7 @@ export default function Sales() {
   const [paymentMethod, setPaymentMethod] = useState<'现金' | '微信' | '支付宝' | '欠款'>('现金');
   const [receivedAmount, setReceivedAmount] = useState(0);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [isOrderSuccess, setIsOrderSuccess] = useState(false);
   const [lastOrderNo, setLastOrderNo] = useState('');
   const [stockWarning, setStockWarning] = useState<{ name: string; stock: number; requested: number } | null>(null);
@@ -239,51 +240,53 @@ export default function Sales() {
   }, [isCheckoutOpen, paymentMethod, finalAmount]);
 
   const handleCheckout = async (shouldPrint = true, force = false) => {
-    if (cart.length === 0) return;
+    if (cart.length === 0 || isSaving) return;
+    setIsSaving(true);
     console.log('Checkout Started', { cart, selectedCustomer, paymentMethod });
 
-    // Stock check
-    if (!force) {
-      for (const item of cart) {
-        const product = products.find(p => p.id === item.productId);
-        if (product && item.quantity > product.stock) {
-          console.warn('Stock warning for:', item.name);
-          setStockWarning({ name: item.name, stock: product.stock, requested: item.quantity });
-          return;
+    try {
+      // Stock check
+      if (!force) {
+        for (const item of cart) {
+          const product = products.find(p => p.id === item.productId);
+          if (product && item.quantity > product.stock) {
+            console.warn('Stock warning for:', item.name);
+            setStockWarning({ name: item.name, stock: product.stock, requested: item.quantity });
+            setIsSaving(false);
+            return;
+          }
         }
       }
-    }
-    
-    // Generate unique order ID: YYYYMMDD-XXXX
-    const todayStr = format(new Date(), 'yyyyMMdd');
-    const todayOrders = await db.orders
-      .where('createdAt')
-      .aboveOrEqual(new Date(new Date().setHours(0,0,0,0)).toISOString())
-      .toArray();
-    
-    const sequence = (todayOrders.length + 1).toString().padStart(4, '0');
-    const orderNo = `${todayStr}-${sequence}`;
-    console.log('Generated Order No:', orderNo);
-    
-    const order: Order = {
-      orderNo,
-      customerId: selectedCustomer?.id,
-      customerName: selectedCustomer?.name || '散客',
-      items: cart,
-      totalAmount,
-      discount,
-      bucketsOut,
-      bucketsIn,
-      depositAmount,
-      finalAmount,
-      paymentMethod,
-      status: paymentMethod === '欠款' ? '待支付' : '已支付',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isDeleted: 0
-    };
+      
+      // Generate unique order ID: YYYYMMDD-XXXX
+      const todayStr = format(new Date(), 'yyyyMMdd');
+      const todayOrders = await db.orders
+        .where('createdAt')
+        .aboveOrEqual(new Date(new Date().setHours(0,0,0,0)).toISOString())
+        .toArray();
+      
+      const sequence = (todayOrders.length + 1).toString().padStart(4, '0');
+      const orderNo = `${todayStr}-${sequence}`;
+      console.log('Generated Order No:', orderNo);
+      
+      const order: Order = {
+        orderNo,
+        customerId: selectedCustomer?.id,
+        customerName: selectedCustomer?.name || '散客',
+        items: cart,
+        totalAmount,
+        discount,
+        bucketsOut,
+        bucketsIn,
+        depositAmount,
+        finalAmount,
+        paymentMethod,
+        status: paymentMethod === '欠款' ? '待支付' : '已支付',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isDeleted: 0
+      };
 
-    try {
       // 1. Save Order
       console.log('Saving order to local DB...');
       await db.orders.add(order);
@@ -363,6 +366,8 @@ export default function Sales() {
     } catch (error) {
       console.error('Checkout Error:', error);
       alert('保存订单失败，请重试');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -840,17 +845,28 @@ export default function Sales() {
                 <div className="space-y-3">
                   <button 
                     onClick={() => handleCheckout(false)}
-                    className="w-full py-4 bg-slate-100 text-slate-700 font-bold text-lg rounded-2xl hover:bg-slate-200 transition-all flex items-center justify-center gap-3"
+                    disabled={isSaving}
+                    className="w-full py-4 bg-slate-100 text-slate-700 font-bold text-lg rounded-2xl hover:bg-slate-200 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
                     <Check size={24} />
                     <span>确认 (不打印)</span>
                   </button>
                   <button 
                     onClick={() => handleCheckout(true)}
-                    className="w-full py-5 bg-indigo-600 text-white font-bold text-lg rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3"
+                    disabled={isSaving}
+                    className="w-full py-5 bg-indigo-600 text-white font-bold text-lg rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
-                    <Printer size={24} />
-                    <span>确认并打印单据</span>
+                    {isSaving ? (
+                      <>
+                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>正在处理...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Printer size={24} />
+                        <span>确认并打印单据</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

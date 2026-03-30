@@ -538,6 +538,7 @@ function ProductDetailsModal({ product, onClose }: { product: Product, onClose: 
 }
 
 function ProductFormModal({ product, onClose }: { product: Product | null, onClose: () => void }) {
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Product>>(product || {
     code: '',
     name: '',
@@ -577,6 +578,8 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
     console.log('Product Form Submit Started', formData);
     try {
       const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
@@ -623,6 +626,8 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
     } catch (error) {
       console.error('Product Save Error:', error);
       alert('保存商品失败，请重试');
+    } finally {
+      setIsSaving(false);
     }
   };
 

@@ -740,6 +740,7 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
 }
 
 function CustomerFormModal({ customer, onClose }: { customer: Customer | null, onClose: () => void }) {
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Customer>>(customer || {
     name: '',
     phone: '',
@@ -751,6 +752,8 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
     console.log('Customer Form Submit Started', formData);
     try {
       const py = pinyin(formData.name!, { pattern: 'initial', toneType: 'none' }).replace(/\s/g, '');
@@ -775,6 +778,8 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
     } catch (error) {
       console.error('Customer Save Error:', error);
       alert('保存客户失败，请重试');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -839,15 +844,24 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
             <button 
               type="button"
               onClick={onClose}
-              className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all"
+              disabled={isSaving}
+              className="px-6 py-2.5 text-slate-500 font-bold hover:bg-slate-50 rounded-xl transition-all disabled:opacity-50"
             >
               取消
             </button>
             <button 
               type="submit"
-              className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all"
+              disabled={isSaving}
+              className="px-8 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              保存客户
+              {isSaving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>正在保存...</span>
+                </>
+              ) : (
+                <span>保存客户</span>
+              )}
             </button>
           </div>
         </form>
