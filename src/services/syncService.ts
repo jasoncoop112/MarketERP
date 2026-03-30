@@ -81,6 +81,7 @@ export class SyncService {
         if (this.isSyncing) return;
         this.isSyncing = true;
         console.log('🔄 开始全量同步...');
+        let hasError = false;
         
         try {
             await this.initSession();
@@ -98,17 +99,24 @@ export class SyncService {
                 try {
                     await this.syncTable(tableName, collectionId);
                 } catch (tableError: any) {
+                    hasError = true;
                     if (tableError.code === 404) {
                         console.warn(`⚠️ 集合 [${collectionId}] 不存在，已跳过。`);
+                    } else if (tableError.code === 401) {
+                        console.error(`❌ [${tableName}] 权限不足 (401): 请在 Appwrite 控制台为该集合开启 'Any' 角色的所有权限。`);
                     } else {
                         console.error(`❌ [${tableName}] 同步失败:`, tableError);
                     }
                 }
             }
             
+            if (hasError) {
+                throw new Error('部分数据表同步失败，请检查权限设置');
+            }
             console.log('✅ 全量同步完成');
         } catch (error) {
             console.error('❌ 同步服务异常:', error);
+            throw error; // 抛出错误以便 UI 捕获
         } finally {
             this.isSyncing = false;
         }
@@ -125,6 +133,7 @@ export class SyncService {
         // 1. 推送本地变更
         const localChanges = await table.where('updatedAt').above(lastSyncTime).toArray().catch(() => []);
         if (localChanges.length > 0) {
+            console.log(`Pushing ${localChanges.length} changes for ${tableName}`);
             for (const item of localChanges) {
                 try {
                     const { id, appwriteId, ...data } = item;
@@ -135,16 +144,26 @@ export class SyncService {
                     } else {
                         // 尝试通过业务 ID 匹配云端（防止重复创建）
                         let existingDocId = null;
-                        if (data.orderNo || data.code || data.name) {
-                            const searchField = data.orderNo ? 'orderNo' : (data.code ? 'code' : 'name');
-                            const searchValue = data.orderNo || data.code || data.name;
-                            const existing = await databases.listDocuments(DATABASE_ID, collectionId, [
-                                Query.equal(searchField, searchValue),
-                                Query.limit(1)
-                            ]).catch(() => null);
-                            
-                            if (existing && existing.documents.length > 0) {
-                                existingDocId = existing.documents[0].$id;
+                        const searchField = data.orderNo ? 'orderNo' : (data.code ? 'code' : (data.name ? 'name' : null));
+                        const searchValue = data.orderNo || data.code || data.name;
+
+                        if (searchField && searchValue) {
+                            try {
+                                const existing = await databases.listDocuments(DATABASE_ID, collectionId, [
+                                    Query.equal(searchField, searchValue),
+                                    Query.limit(1)
+                                ]);
+                                if (existing.total > 0) {
+                                    existingDocId = existing.documents[0].$id;
+                                    console.log(`Found existing cloud doc for ${tableName} via ${searchField}: ${existingDocId}`);
+                                }
+                            } catch (searchError: any) {
+                                // If search fails, it might be due to missing index
+                                if (searchError.code === 400 && searchError.message?.includes('index')) {
+                                    console.error(`Appwrite Index Missing for ${tableName}.${searchField}. Please create an index in Appwrite console.`);
+                                } else {
+                                    console.warn(`Search failed for ${tableName}:`, searchError.message);
+                                }
                             }
                         }
 
@@ -157,12 +176,8 @@ export class SyncService {
                         }
                     }
                 } catch (err: any) {
-                    const errMsg = err?.message || String(err);
-                    if (errMsg.includes('Unknown attribute')) {
-                        console.error(`❌ 推送失败 [${tableName}]: Appwrite 集合中缺少属性。请检查 Appwrite 控制台中的集合设置。`, errMsg);
-                    } else {
-                        console.error(`❌ 推送失败 [${tableName}]:`, err);
-                    }
+                    console.error(`Push error for ${tableName}:`, err);
+                    throw err; // 向上抛出，让 syncAll 捕获
                 }
             }
         }
@@ -177,19 +192,26 @@ export class SyncService {
 
             for (const doc of response.documents) {
                 const data = this.prepareFromAppwrite(doc);
+                // 增强去重逻辑
                 const localItem = await table.where('appwriteId').equals(doc.$id).first()
                     || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
-                    || (data.code ? await table.where('code').equals(data.code).first() : null);
+                    || (data.code ? await table.where('code').equals(data.code).first() : null)
+                    || (tableName === 'customers' && data.name ? await table.where('name').equals(data.name).first() : null);
 
                 if (localItem) {
                     if (new Date(doc.$updatedAt) > new Date(localItem.updatedAt)) {
                         await table.update(localItem.id, { ...data, appwriteId: doc.$id });
+                    } else if (!localItem.appwriteId) {
+                        await table.update(localItem.id, { appwriteId: doc.$id });
                     }
                 } else {
                     await table.add({ ...data, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
                 }
             }
-        } catch (e) {}
+        } catch (e: any) {
+            console.error(`Pull error for ${tableName}:`, e);
+            if (e.code !== 404) throw e;
+        }
 
         await db.syncStatus.put({ key: syncKey, lastSync: new Date().toISOString() });
     }
