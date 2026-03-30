@@ -332,7 +332,9 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-6">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all ${
+            <button 
+              onClick={() => syncService.triggerSync()}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
               syncStatus === 'syncing' ? 'bg-indigo-50 text-indigo-600 border-indigo-100 animate-pulse' :
               syncStatus === 'error' ? 'bg-rose-50 text-rose-600 border-rose-100' :
               'bg-emerald-50 text-emerald-600 border-emerald-100'
@@ -340,8 +342,8 @@ export default function App() {
               {syncStatus === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 
                syncStatus === 'error' ? <CloudOff size={14} /> : <Cloud size={14} />}
               <span>{syncStatus === 'syncing' ? '正在同步云端...' : 
-                     syncStatus === 'error' ? '同步失败' : '云端已同步'}</span>
-            </div>
+                     syncStatus === 'error' ? '同步失败 (点击重试)' : '云端已同步'}</span>
+            </button>
 
             <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-slate-600 shadow-inner">
               <Clock size={16} className="text-indigo-500" />
