@@ -482,6 +482,7 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
       createdAt: new Date().toISOString()
     });
 
+    await syncService.triggerSync();
     setLastOrderNo(orderNo);
     setIsOrderSuccess(true);
     // Dispatch print event
@@ -885,6 +886,10 @@ function DebtRepaymentModal({ customer, onClose }: { customer: Customer, onClose
         details: `客户 ${customer.name} 偿还欠款 ¥${amount} (${method})。剩余欠款: ¥${newDebt}`,
         createdAt: new Date().toISOString()
       });
+
+      // 4. Trigger sync
+      await syncService.triggerSync();
+
       onClose();
     } catch (error) {
       console.error('Repayment Error:', error);

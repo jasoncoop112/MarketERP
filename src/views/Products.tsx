@@ -1001,6 +1001,7 @@ function StockAdjustmentModal({ product, onClose }: { product: Product, onClose:
       createdAt: new Date().toISOString()
     });
     
+    await syncService.triggerSync();
     onClose();
   };
 
