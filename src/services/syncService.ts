@@ -157,47 +157,76 @@ export class SyncService {
             for (const item of localChanges) {
                 try {
                     const { id, appwriteId, ...data } = item;
-                    const preparedData = this.prepareForAppwrite(tableName, data);
-
-                    if (appwriteId) {
-                        await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, preparedData);
-                    } else {
-                        // 尝试通过业务 ID 匹配云端（防止重复创建）
-                        let existingDocId = null;
-                        const searchField = data.orderNo ? 'orderNo' : (data.code ? 'code' : (data.name ? 'name' : null));
-                        const searchValue = data.orderNo || data.code || data.name;
-
-                        if (searchField && searchValue) {
-                            try {
-                                const existing = await databases.listDocuments(DATABASE_ID, collectionId, [
-                                    Query.equal(searchField, searchValue),
-                                    Query.limit(1)
-                                ]);
-                                if (existing.total > 0) {
-                                    existingDocId = existing.documents[0].$id;
-                                    console.log(`Found existing cloud doc for ${tableName} via ${searchField}: ${existingDocId}`);
-                                }
-                            } catch (searchError: any) {
-                                // If search fails, it might be due to missing index
-                                if (searchError.code === 400 && searchError.message?.includes('index')) {
-                                    console.error(`Appwrite Index Missing for ${tableName}.${searchField}. Please create an index in Appwrite console.`);
-                                } else {
-                                    console.warn(`Search failed for ${tableName}:`, searchError.message);
-                                }
-                            }
-                        }
-
-                        if (existingDocId) {
-                            await databases.updateDocument(DATABASE_ID, collectionId, existingDocId, preparedData);
-                            await table.update(id, { appwriteId: existingDocId });
-                        } else {
-                            const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), preparedData);
-                            await table.update(id, { appwriteId: doc.$id });
+                    
+                    // 处理图片上传
+                    if (tableName === 'products' && data.image && data.image.startsWith('data:image')) {
+                        try {
+                            const fileId = await this.uploadImage(data.image);
+                            data.image = fileId;
+                            // 更新本地以保存文件 ID 而非 base64
+                            await table.update(id, { image: fileId });
+                        } catch (uploadErr) {
+                            console.error('Image upload failed during sync:', uploadErr);
+                            // 继续同步，但保留 base64（可能会因为长度限制失败）
                         }
                     }
+
+                    const preparedData = this.prepareForAppwrite(tableName, data);
+
+                    const pushToAppwrite = async (payload: any) => {
+                        try {
+                            if (appwriteId) {
+                                return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
+                            } else {
+                                // 尝试通过业务 ID 匹配云端（防止重复创建）
+                                let existingDocId = null;
+                                const searchField = payload.orderNo ? 'orderNo' : (payload.code ? 'code' : (payload.name ? 'name' : null));
+                                const searchValue = payload.orderNo || payload.code || payload.name;
+
+                                if (searchField && searchValue) {
+                                    try {
+                                        const existing = await databases.listDocuments(DATABASE_ID, collectionId, [
+                                            Query.equal(searchField, searchValue),
+                                            Query.limit(1)
+                                        ]);
+                                        if (existing.total > 0) {
+                                            existingDocId = existing.documents[0].$id;
+                                        }
+                                    } catch (searchError) {}
+                                }
+
+                                if (existingDocId) {
+                                    const doc = await databases.updateDocument(DATABASE_ID, collectionId, existingDocId, payload);
+                                    await table.update(id, { appwriteId: doc.$id });
+                                    return doc;
+                                } else {
+                                    const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), payload);
+                                    await table.update(id, { appwriteId: doc.$id });
+                                    return doc;
+                                }
+                            }
+                        } catch (err: any) {
+                            // 详细错误分析
+                            if (err.message?.includes('pinyin') || err.message?.includes('Unknown attribute')) {
+                                console.warn(`Attribute 'pinyin' missing in Appwrite for ${tableName}, retrying without it...`);
+                                const { pinyin, ...retryPayload } = payload;
+                                return await pushToAppwrite(retryPayload);
+                            }
+                            
+                            // 检查是否是由于字段类型不匹配或缺失导致的
+                            if (err.message?.includes('Invalid attribute')) {
+                                console.error(`Field type mismatch or missing attribute in Appwrite ${tableName}:`, err.message);
+                                console.log('Payload attempted:', payload);
+                            }
+                            
+                            throw err;
+                        }
+                    };
+
+                    await pushToAppwrite(preparedData);
                 } catch (err: any) {
                     console.error(`Push error for ${tableName}:`, err);
-                    throw err; // 向上抛出，让 syncAll 捕获
+                    throw new Error(`${tableName} 同步失败: ${err.message}`);
                 }
             }
         }
@@ -212,7 +241,6 @@ export class SyncService {
 
             for (const doc of response.documents) {
                 const data = this.prepareFromAppwrite(doc);
-                // 增强去重逻辑
                 const localItem = await table.where('appwriteId').equals(doc.$id).first()
                     || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
                     || (data.code ? await table.where('code').equals(data.code).first() : null)
@@ -236,6 +264,13 @@ export class SyncService {
         await db.syncStatus.put({ key: syncKey, lastSync: new Date().toISOString() });
     }
 
+    private static async uploadImage(base64: string): Promise<string> {
+        const blob = await (await fetch(base64)).blob();
+        const file = new File([blob], `product_${Date.now()}.png`, { type: 'image/png' });
+        const uploaded = await storage.createFile(BUCKET_ID, ID.unique(), file);
+        return uploaded.$id;
+    }
+
     private static prepareForAppwrite(tableName: string, item: any) {
         const data = { ...item };
         delete data.id;
@@ -247,7 +282,8 @@ export class SyncService {
             'purchasePrice', 'wholesalePrice', 'retailPrice', 'price2', 'price3', 
             'stock', 'minStock', 'debt', 'totalSpent', 'amount', 'quantity', 
             'totalAmount', 'discount', 'finalAmount', 'bucketsOut', 'bucketsIn', 'depositAmount',
-            'receivedAmount', 'previousStock', 'currentStock', 'searchCount'
+            'receivedAmount', 'previousStock', 'currentStock', 'searchCount',
+            'customerId', 'productId', 'isDeleted'
         ];
         numericFields.forEach(f => {
             if (data[f] !== undefined && data[f] !== null) {
