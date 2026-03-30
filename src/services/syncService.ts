@@ -82,8 +82,8 @@ export class SyncService {
         this.syncAll().catch(err => console.error('后台同步失败:', err));
     }
 
-    static async syncAll() {
-        if (this.isSyncing) return;
+    static async syncAll(): Promise<boolean> {
+        if (this.isSyncing) return false;
         this.isSyncing = true;
         console.log('🔄 开始全量同步...');
         let hasError = false;
@@ -134,6 +134,7 @@ export class SyncService {
             
             await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
             console.log('✅ 全量同步完成');
+            return true;
         } catch (error) {
             console.error('❌ 同步服务异常:', error);
             throw error; // 抛出错误以便 UI 捕获
@@ -164,16 +165,15 @@ export class SyncService {
                             const fileId = await this.uploadImage(data.image);
                             data.image = fileId;
                             // 更新本地以保存文件 ID 而非 base64
-                            await table.update(id, { image: fileId });
+                            await table.update(id, { image: fileId, _isSync: true });
                         } catch (uploadErr) {
                             console.error('Image upload failed during sync:', uploadErr);
-                            // 继续同步，但保留 base64（可能会因为长度限制失败）
                         }
                     }
 
                     const preparedData = this.prepareForAppwrite(tableName, data);
 
-                    const pushToAppwrite = async (payload: any, isRetry = false) => {
+                    const pushToAppwrite = async (payload: any, retryCount = 0): Promise<any> => {
                         try {
                             if (appwriteId) {
                                 return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
@@ -192,41 +192,37 @@ export class SyncService {
                                         if (existing.total > 0) {
                                             existingDocId = existing.documents[0].$id;
                                         }
-                                    } catch (searchError) {}
+                                    } catch (searchError) {
+                                        console.warn(`[Sync] Search failed for ${searchField}=${searchValue}. Make sure this field is indexed in Appwrite.`);
+                                    }
                                 }
 
                                 if (existingDocId) {
                                     const doc = await databases.updateDocument(DATABASE_ID, collectionId, existingDocId, payload);
-                                    await table.update(id, { appwriteId: doc.$id });
+                                    await table.update(id, { appwriteId: doc.$id, _isSync: true });
                                     return doc;
                                 } else {
                                     const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), payload);
-                                    await table.update(id, { appwriteId: doc.$id });
+                                    await table.update(id, { appwriteId: doc.$id, _isSync: true });
                                     return doc;
                                 }
                             }
                         } catch (err: any) {
-                            // 详细错误分析
-                            if (!isRetry && (err.message?.includes('pinyin') || err.message?.includes('Unknown attribute'))) {
-                                console.warn(`Attribute 'pinyin' missing in Appwrite for ${tableName}, retrying without it...`);
-                                const { pinyin, ...retryPayload } = payload;
-                                return await pushToAppwrite(retryPayload, true);
+                            const unknownAttrMatch = err.message?.match(/Unknown attribute: "([^"]+)"/);
+                            if (unknownAttrMatch && retryCount < 5) {
+                                const attrName = unknownAttrMatch[1];
+                                const newPayload = { ...payload };
+                                delete newPayload[attrName];
+                                return await pushToAppwrite(newPayload, retryCount + 1);
                             }
-                            
-                            // 检查是否是由于字段类型不匹配或缺失导致的
-                            if (err.message?.includes('Invalid attribute') || err.message?.includes('required')) {
-                                console.error(`Field error in Appwrite ${tableName}:`, err.message);
-                                console.log('Payload attempted:', payload);
-                            }
-                            
                             throw err;
                         }
                     };
 
                     await pushToAppwrite(preparedData);
                 } catch (err: any) {
-                    console.error(`Push error for ${tableName}:`, err);
-                    throw new Error(`${tableName} 同步失败: ${err.message}`);
+                    console.error(`[Sync] Failed to push item ${item.id} in ${tableName}:`, err);
+                    // 继续同步其他记录
                 }
             }
         }
@@ -248,12 +244,14 @@ export class SyncService {
 
                 if (localItem) {
                     if (new Date(doc.$updatedAt) > new Date(localItem.updatedAt)) {
-                        await table.update(localItem.id, { ...data, appwriteId: doc.$id });
+                        await table.update(localItem.id, { ...data, appwriteId: doc.$id, _isSync: true });
                     } else if (!localItem.appwriteId) {
-                        await table.update(localItem.id, { appwriteId: doc.$id });
+                        await table.update(localItem.id, { appwriteId: doc.$id, _isSync: true });
                     }
                 } else {
-                    await table.add({ ...data, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
+                    // 确保不带入 Appwrite 的系统字段或冲突的本地 ID
+                    const { id: _, ...newData } = data;
+                    await table.add({ ...newData, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
                 }
             }
         } catch (e: any) {
@@ -297,13 +295,17 @@ export class SyncService {
     }
 
     private static prepareFromAppwrite(doc: any) {
-        const { $id, $updatedAt, $createdAt, ...data } = doc;
+        const { $id, $updatedAt, $createdAt, $collectionId, $databaseId, $permissions, ...data } = doc;
         const prepared = { 
             ...data, 
             appwriteId: $id, 
             updatedAt: $updatedAt,
             createdAt: data.createdAt || $createdAt
         };
+        
+        // 移除可能带入的本地 ID，防止冲突
+        delete (prepared as any).id;
+
         try {
             if (prepared.history && typeof prepared.history === 'string') prepared.history = JSON.parse(prepared.history);
             if (prepared.items && typeof prepared.items === 'string') prepared.items = JSON.parse(prepared.items);
