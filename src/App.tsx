@@ -210,9 +210,11 @@ export default function App() {
       console.log('Auto-sync started...');
       setSyncStatus('syncing');
       try {
-        await syncService.syncAll();
-        console.log('Auto-sync completed successfully');
-        setSyncStatus('idle');
+        const didSync = await syncService.syncAll();
+        if (didSync) {
+          console.log('Auto-sync completed successfully');
+          setSyncStatus('idle');
+        }
       } catch (error) {
         console.error('Auto-sync failed:', error);
         setSyncStatus('error');
@@ -220,7 +222,7 @@ export default function App() {
     };
 
     doSync();
-    const interval = setInterval(doSync, 3000);
+    const interval = setInterval(doSync, 5000);
     return () => clearInterval(interval);
   }, []);
 

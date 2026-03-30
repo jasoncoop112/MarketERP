@@ -46,7 +46,14 @@ export class MyDatabase extends Dexie {
 
     // Auto-set updatedAt on any change
     const setUpdatedAt = (mods: any, primKey: any, obj: any) => {
-      // Only set updatedAt if it's not already being set (prevents sync loops)
+      // If _isSync is present, it means the update is from the sync service
+      // We should remove the flag and NOT auto-update updatedAt
+      if (mods._isSync) {
+        delete mods._isSync;
+        return;
+      }
+      
+      // Only set updatedAt if it's not already being set
       if (!mods.updatedAt) {
         mods.updatedAt = new Date().toISOString();
       }
