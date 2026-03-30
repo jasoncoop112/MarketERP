@@ -173,7 +173,7 @@ export class SyncService {
 
                     const preparedData = this.prepareForAppwrite(tableName, data);
 
-                    const pushToAppwrite = async (payload: any) => {
+                    const pushToAppwrite = async (payload: any, isRetry = false) => {
                         try {
                             if (appwriteId) {
                                 return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
@@ -207,15 +207,15 @@ export class SyncService {
                             }
                         } catch (err: any) {
                             // 详细错误分析
-                            if (err.message?.includes('pinyin') || err.message?.includes('Unknown attribute')) {
+                            if (!isRetry && (err.message?.includes('pinyin') || err.message?.includes('Unknown attribute'))) {
                                 console.warn(`Attribute 'pinyin' missing in Appwrite for ${tableName}, retrying without it...`);
                                 const { pinyin, ...retryPayload } = payload;
-                                return await pushToAppwrite(retryPayload);
+                                return await pushToAppwrite(retryPayload, true);
                             }
                             
                             // 检查是否是由于字段类型不匹配或缺失导致的
-                            if (err.message?.includes('Invalid attribute')) {
-                                console.error(`Field type mismatch or missing attribute in Appwrite ${tableName}:`, err.message);
+                            if (err.message?.includes('Invalid attribute') || err.message?.includes('required')) {
+                                console.error(`Field error in Appwrite ${tableName}:`, err.message);
                                 console.log('Payload attempted:', payload);
                             }
                             
