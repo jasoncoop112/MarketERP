@@ -220,7 +220,7 @@ export default function App() {
     };
 
     doSync();
-    const interval = setInterval(doSync, 30000);
+    const interval = setInterval(doSync, 3000);
     return () => clearInterval(interval);
   }, []);
 

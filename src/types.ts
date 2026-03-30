@@ -33,6 +33,7 @@ export interface Customer {
   updatedAt?: string;
   isDeleted?: number | boolean;
   name: string;
+  pinyin: string; // For searching
   phone: string;
   address?: string;
   debt: number; // 欠款

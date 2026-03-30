@@ -35,7 +35,7 @@ export class MyDatabase extends Dexie {
     });
     this.version(3).stores({
       products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId',
-      customers: '++id, name, phone, updatedAt, isDeleted, appwriteId',
+      customers: '++id, name, pinyin, phone, updatedAt, isDeleted, appwriteId',
       orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId',
       logs: '++id, user, action, createdAt, updatedAt, isDeleted, appwriteId',
       stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
