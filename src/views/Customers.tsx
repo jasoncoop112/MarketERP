@@ -34,6 +34,7 @@ import {
 import { NumberInput } from '../components/NumberInput';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
+import { syncService } from '../services/syncService';
 import type { Customer, Product, Order, OrderItem, Repayment } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';

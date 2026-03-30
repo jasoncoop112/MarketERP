@@ -30,6 +30,7 @@ import {
 import { NumberInput } from '../components/NumberInput';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
+import { syncService } from '../services/syncService';
 import type { Product } from '../types';
 import { pinyin } from 'pinyin-pro';
 import { compressImage } from '../lib/imageUtils';

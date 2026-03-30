@@ -28,6 +28,7 @@ import {
 import { NumberInput } from '../components/NumberInput';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
+import { syncService } from '../services/syncService';
 import { getImageUrl } from '../appwrite';
 import type { Product, Customer, Order, OrderItem, SearchHistory } from '../types';
 import { motion, AnimatePresence } from 'motion/react';

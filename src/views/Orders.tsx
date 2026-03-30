@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
+import { syncService } from '../services/syncService';
 import type { Order } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { format, startOfDay, endOfDay, subDays, isWithinInterval } from 'date-fns';
