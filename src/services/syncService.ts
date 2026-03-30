@@ -71,6 +71,12 @@ export class SyncService {
         return status;
     }
 
+    // 触发同步（兼容旧调用）
+    static async triggerSync() {
+        console.log('🚀 触发同步...');
+        this.syncAll().catch(err => console.error('后台同步失败:', err));
+    }
+
     static async syncAll() {
         if (this.isSyncing) return;
         this.isSyncing = true;
@@ -112,29 +118,17 @@ export class SyncService {
         const table = (db as any)[tableName];
         if (!table) return;
 
-        // 获取该表上次同步的时间，如果没有则从 2000 年开始
         const syncKey = `lastSync_${tableName}`;
         const lastSyncState = await db.syncStatus.get(syncKey).catch(() => null);
+        const lastSyncTime = lastSyncState?.lastSync || new Date(0).toISOString();
         
-        // 关键修复：拉取时稍微往前推 5 分钟，防止服务器时间差导致漏单
-        const lastSyncDate = lastSyncState?.lastSync ? new Date(lastSyncState.lastSync) : new Date(0);
-        const pullStartTime = new Date(lastSyncDate.getTime() - 5 * 60 * 1000).toISOString();
-
-        console.log(`--- 同步 [${tableName}] (上次同步: ${lastSyncState?.lastSync || '从未'}) ---`);
-
-        // 1. 推送本地变更 (updatedAt > lastSync)
-        const localChanges = await table
-            .where('updatedAt')
-            .above(lastSyncState?.lastSync || new Date(0).toISOString())
-            .toArray()
-            .catch(() => []);
-
+        // 1. 推送本地变更
+        const localChanges = await table.where('updatedAt').above(lastSyncTime).toArray().catch(() => []);
         if (localChanges.length > 0) {
-            console.log(`⬆️ 正在推送 ${localChanges.length} 条本地变更...`);
             for (const item of localChanges) {
                 try {
                     const { id, appwriteId, ...data } = item;
-                    const preparedData = this.prepareForAppwrite(data);
+                    const preparedData = this.prepareForAppwrite(tableName, data);
 
                     if (appwriteId) {
                         await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, preparedData);
@@ -162,85 +156,75 @@ export class SyncService {
                             await table.update(id, { appwriteId: doc.$id });
                         }
                     }
-                } catch (err) {
-                    console.error(`推送失败 [${tableName}]:`, err);
-                }
-            }
-        }
-
-        // 2. 拉取云端变更 ($updatedAt > pullStartTime)
-        try {
-            const response = await databases.listDocuments(DATABASE_ID, collectionId, [
-                Query.greaterThan('$updatedAt', pullStartTime),
-                Query.limit(100)
-            ]).catch(() => null);
-
-            if (response && response.documents.length > 0) {
-                console.log(`⬇️ 正在拉取 ${response.documents.length} 条云端变更...`);
-                for (const doc of response.documents) {
-                    try {
-                        const appwriteId = doc.$id;
-                        const data = this.prepareFromAppwrite(doc);
-                        
-                        // 匹配本地记录
-                        const localItem = await table.where('appwriteId').equals(appwriteId).first()
-                            || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
-                            || (data.code ? await table.where('code').equals(data.code).first() : null);
-
-                        if (localItem) {
-                            // 云端较新才更新本地
-                            if (new Date(doc.$updatedAt) > new Date(localItem.updatedAt)) {
-                                await table.update(localItem.id, { ...data, appwriteId });
-                            }
-                        } else {
-                            // 本地没有，直接新增
-                            await table.add({ ...data, appwriteId, isDeleted: data.isDeleted ?? 0 });
-                        }
-                    } catch (e) {
-                        console.error(`拉取单条失败 [${tableName}]:`, e);
+                } catch (err: any) {
+                    const errMsg = err?.message || String(err);
+                    if (errMsg.includes('Unknown attribute')) {
+                        console.error(`❌ 推送失败 [${tableName}]: Appwrite 集合中缺少属性。请检查 Appwrite 控制台中的集合设置。`, errMsg);
+                    } else {
+                        console.error(`❌ 推送失败 [${tableName}]:`, err);
                     }
                 }
             }
-        } catch (error) {
-            console.error(`拉取失败 [${tableName}]:`, error);
         }
 
-        // 更新该表的同步时间
+        // 2. 拉取云端变更
+        try {
+            const pullStartTime = new Date(new Date(lastSyncTime).getTime() - 5 * 60 * 1000).toISOString();
+            const response = await databases.listDocuments(DATABASE_ID, collectionId, [
+                Query.greaterThan('$updatedAt', pullStartTime),
+                Query.limit(100)
+            ]);
+
+            for (const doc of response.documents) {
+                const data = this.prepareFromAppwrite(doc);
+                const localItem = await table.where('appwriteId').equals(doc.$id).first()
+                    || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
+                    || (data.code ? await table.where('code').equals(data.code).first() : null);
+
+                if (localItem) {
+                    if (new Date(doc.$updatedAt) > new Date(localItem.updatedAt)) {
+                        await table.update(localItem.id, { ...data, appwriteId: doc.$id });
+                    }
+                } else {
+                    await table.add({ ...data, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
+                }
+            }
+        } catch (e) {}
+
         await db.syncStatus.put({ key: syncKey, lastSync: new Date().toISOString() });
     }
 
-    private async uploadImage(base64: string): Promise<string> {
-        try {
-            const res = await fetch(base64);
-            const blob = await res.blob();
-            const file = new File([blob], 'image.jpg', { type: 'image/jpeg' });
-            const response = await storage.createFile(BUCKET_ID, ID.unique(), file);
-            return response.$id;
-        } catch (error) {
-            throw error;
-        }
-    }
-
-    private static prepareForAppwrite(item: any) {
+    private static prepareForAppwrite(tableName: string, item: any) {
         const data = { ...item };
-        // Remove internal Dexie/Sync fields that are not in Appwrite Schema
         delete data.id;
         delete data.appwriteId;
         delete data.sync_status;
         
-        try {
-            if (data.history && typeof data.history !== 'string') data.history = JSON.stringify(data.history);
-            if (data.items && typeof data.items !== 'string') data.items = JSON.stringify(data.items);
-        } catch (e) {}
+        // 强制转换数值，防止 Appwrite 报错
+        const numericFields = [
+            'purchasePrice', 'wholesalePrice', 'retailPrice', 'price2', 'price3', 
+            'stock', 'minStock', 'debt', 'totalSpent', 'amount', 'quantity', 
+            'totalAmount', 'discount', 'finalAmount', 'bucketsOut', 'bucketsIn', 'depositAmount',
+            'receivedAmount', 'previousStock', 'currentStock', 'searchCount'
+        ];
+        numericFields.forEach(f => {
+            if (data[f] !== undefined && data[f] !== null) {
+                data[f] = Number(data[f]) || 0;
+            }
+        });
+
+        if (data.history && typeof data.history !== 'string') data.history = JSON.stringify(data.history);
+        if (data.items && typeof data.items !== 'string') data.items = JSON.stringify(data.items);
         return data;
     }
 
     private static prepareFromAppwrite(doc: any) {
-        const { $id, $permissions, $collectionId, $databaseId, $createdAt, $updatedAt, ...data } = doc;
+        const { $id, $updatedAt, $createdAt, ...data } = doc;
         const prepared = { 
             ...data, 
-            appwriteId: $id,
-            updatedAt: $updatedAt // Map Appwrite's $updatedAt to local updatedAt
+            appwriteId: $id, 
+            updatedAt: $updatedAt,
+            createdAt: data.createdAt || $createdAt
         };
         try {
             if (prepared.history && typeof prepared.history === 'string') prepared.history = JSON.parse(prepared.history);
