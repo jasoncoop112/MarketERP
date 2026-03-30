@@ -524,7 +524,7 @@ export default function Sales() {
             >
               <option value="">散客 (无记录)</option>
               {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
               ))}
             </select>
             <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
