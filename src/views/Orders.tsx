@@ -34,7 +34,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
-import OrderPrintPreview from '../components/OrderPrintPreview.tsx';
+import OrderPrintPreview from '../components/OrderPrintPreview';
 
 export default function Orders() {
   const orders = useLiveQuery(async () => {
