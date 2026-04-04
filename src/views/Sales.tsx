@@ -667,8 +667,8 @@ export default function Sales() {
                 />
               </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-500 flex items-center gap-1">
+            <div className="flex justify-between items-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+              <span className="text-sm text-indigo-700 flex items-center gap-1 font-bold">
                 <Package size={14} /> 押桶数量
               </span>
               <div className="flex items-center gap-2">
@@ -676,13 +676,13 @@ export default function Sales() {
                   step="1"
                   value={bucketsOut}
                   onChange={(val) => setBucketsOut(val)}
-                  className="w-20 text-right bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none text-sm font-mono font-bold text-indigo-600"
+                  className="w-20 text-right bg-white px-2 py-1 rounded-lg border border-indigo-200 focus:border-indigo-500 outline-none text-sm font-mono font-bold text-indigo-600 shadow-sm"
                 />
-                <span className="text-slate-400 text-[10px]">个</span>
+                <span className="text-indigo-400 text-[10px] font-bold">个</span>
               </div>
             </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-500 flex items-center gap-1">
+            <div className="flex justify-between items-center p-2 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+              <span className="text-sm text-emerald-700 flex items-center gap-1 font-bold">
                 <ArrowRight size={14} className="rotate-180" /> 还桶数量
               </span>
               <div className="flex items-center gap-2">
@@ -690,9 +690,9 @@ export default function Sales() {
                   step="1"
                   value={bucketsIn}
                   onChange={(val) => setBucketsIn(val)}
-                  className="w-20 text-right bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none text-sm font-mono font-bold text-emerald-600"
+                  className="w-20 text-right bg-white px-2 py-1 rounded-lg border border-emerald-200 focus:border-emerald-500 outline-none text-sm font-mono font-bold text-emerald-600 shadow-sm"
                 />
-                <span className="text-slate-400 text-[10px]">个</span>
+                <span className="text-emerald-400 text-[10px] font-bold">个</span>
               </div>
             </div>
             <div className="flex justify-between text-sm text-slate-500">
