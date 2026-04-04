@@ -28,5 +28,11 @@ export const COLLECTIONS = {
 export const getImageUrl = (image: string | undefined) => {
     if (!image) return '';
     if (image.startsWith('data:image')) return image;
-    return storage.getFilePreview(BUCKET_ID, image);
+    
+    const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID || '69c4c032002f214af93e';
+    const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT || 'https://sgp.cloud.appwrite.io/v1';
+    
+    // 手动拼接预览 URL，这是最稳妥的方式，确保 project ID 始终存在
+    // 同时也支持设置宽度和质量来优化加载速度
+    return `${endpoint}/storage/buckets/${BUCKET_ID}/files/${image}/preview?project=${projectId}&width=400&quality=80`;
 };
