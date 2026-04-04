@@ -266,12 +266,12 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden">
+    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden print:block print:h-auto print:bg-white print:overflow-visible">
       {/* Sidebar */}
       <motion.aside 
         initial={false}
         animate={{ width: isSidebarOpen ? 240 : 80 }}
-        className="bg-white border-r border-slate-200 flex flex-col shadow-sm z-20"
+        className="bg-white border-r border-slate-200 flex flex-col shadow-sm z-20 print:hidden"
       >
         <div className="p-6 flex items-center gap-3 border-b border-slate-100">
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
@@ -324,7 +324,7 @@ export default function App() {
       </motion.aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden print:hidden">
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm shrink-0 z-10">
           <div className="flex items-center gap-4">

@@ -40,10 +40,6 @@
     font-family: "宋体", "SimSun", "微软雅黑", "Microsoft YaHei", serif;
   }
 
-  #root {
-    display: none !important;
-  }
-
   .print-area {
     display: block !important;
     width: 100%;
