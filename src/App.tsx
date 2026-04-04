@@ -64,7 +64,33 @@ function PrintBill({ order }: { order: Order | null }) {
   const BillContent = ({ copyTitle }: { copyTitle: string }) => {
     const items = order.items || [];
     const totalRows = 14;
-    const displayItems = [...items];
+    // 构造显示列表，将押桶/退桶信息作为特殊行加入表格
+    const displayItems: any[] = [...items];
+    
+    if (order.bucketsOut > 0) {
+      displayItems.push({
+        productId: -101,
+        name: '押桶 (¥20/个)',
+        price: 20,
+        quantity: order.bucketsOut,
+        unit: '个',
+        total: order.bucketsOut * 20,
+        isBucket: true
+      });
+    }
+    
+    if (order.bucketsIn > 0) {
+      displayItems.push({
+        productId: -102,
+        name: '还桶 (¥20/个)',
+        price: 20,
+        quantity: -order.bucketsIn,
+        unit: '个',
+        total: -order.bucketsIn * 20,
+        isBucket: true
+      });
+    }
+
     while (displayItems.length < totalRows) {
       displayItems.push({ productId: -1, name: '', price: 0, quantity: 0, unit: '', total: 0 });
     }
@@ -132,13 +158,15 @@ function PrintBill({ order }: { order: Order | null }) {
           </thead>
           <tbody>
             {displayItems.map((item, i) => (
-              <tr key={i} style={{ height: '22pt' }}>
-                <td style={{ border: '1pt solid black', textAlign: 'center' }}>{item.productId === -1 ? '' : i + 1}</td>
-                <td style={{ border: '1pt solid black', padding: '0 4pt', fontWeight: 'bold' }}>{item.name}</td>
+              <tr key={i} style={{ height: '22pt', backgroundColor: item.isBucket ? '#fefce8' : 'transparent' }}>
+                <td style={{ border: '1pt solid black', textAlign: 'center' }}>{item.productId === -1 ? '' : (item.isBucket ? '*' : i + 1)}</td>
+                <td style={{ border: '1pt solid black', padding: '0 4pt', fontWeight: 'bold' }}>
+                  {item.isBucket ? <span style={{ color: '#854d0e' }}>{item.name}</span> : item.name}
+                </td>
                 <td style={{ border: '1pt solid black', textAlign: 'center' }}>
                   {item.productId === -1 ? '' : (
                     <>
-                      {item.pricingMethod === 'weight' ? item.quantity.toFixed(1) : Math.floor(item.quantity)}
+                      {item.isBucket ? item.quantity : (item.pricingMethod === 'weight' ? item.quantity.toFixed(1) : Math.floor(item.quantity))}
                       <span style={{ marginLeft: '2pt' }}>{item.unit}</span>
                     </>
                   )}
@@ -167,8 +195,10 @@ function PrintBill({ order }: { order: Order | null }) {
             <td style={{ fontWeight: 'bold', paddingBottom: '4pt' }}>主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
           </tr>
           <tr>
-            <td style={{ paddingBottom: '4pt', fontSize: '9pt' }}>
-              本次押桶：{order.bucketsOut || 0} | 本次还桶：{order.bucketsIn || 0} | 本次押金：¥{(order.depositAmount || 0).toFixed(1)} | 剩余未退：{((customer?.bucketsOut || 0) - (customer?.bucketsIn || 0))}个
+            <td style={{ paddingBottom: '4pt', fontSize: '9pt', color: '#475569' }}>
+              <span style={{ fontWeight: 'bold', color: '#1e293b' }}>[桶账汇总]</span> 
+              &nbsp;本次押桶：{order.bucketsOut || 0} | 本次还桶：{order.bucketsIn || 0} | 
+              &nbsp;剩余未退：<span style={{ color: '#e11d48', fontWeight: 'bold' }}>{((customer?.bucketsOut || 0) - (customer?.bucketsIn || 0))}</span> 个
             </td>
           </tr>
           <tr>
