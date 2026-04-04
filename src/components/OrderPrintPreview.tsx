@@ -70,7 +70,7 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
   const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md print:hidden" onClick={onClose}>
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
