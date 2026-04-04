@@ -272,7 +272,7 @@ export default function Products({ userRole }: ProductsProps) {
               }}
             >
               {product.image ? (
-                <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
+                <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-slate-300">
                   <Package size={48} strokeWidth={1} />
@@ -458,7 +458,7 @@ function ProductDetailsModal({ product, onClose }: { product: Product, onClose: 
       >
         <div className="md:w-1/2 aspect-square bg-slate-100 flex items-center justify-center relative">
           {product.image ? (
-            <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
+            <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
             <Package size={80} className="text-slate-300" strokeWidth={1} />
           )}
@@ -659,7 +659,7 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
                 <div className="w-32 h-32 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group">
                   {formData.image ? (
                     <>
-                      <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" />
+                      <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       <button 
                         type="button"
                         onClick={() => setFormData({ ...formData, image: undefined })}

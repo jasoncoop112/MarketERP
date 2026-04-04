@@ -455,7 +455,7 @@ export default function Sales() {
                 <div className="flex gap-4 items-start">
                   <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 shrink-0 overflow-hidden border border-slate-100">
                     {product.image ? (
-                      <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" />
+                      <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <Package size={24} strokeWidth={1} />
                     )}
