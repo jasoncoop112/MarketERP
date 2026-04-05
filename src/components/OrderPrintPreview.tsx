@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import type { Order, Customer } from '../types';
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 
 interface OrderPrintPreviewProps {
@@ -34,29 +34,32 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
 
     try {
       const element = printRef.current;
+      
+      // Use a higher scale for better quality, but ensure it's not too high to crash
       const canvas = await html2canvas(element, {
-        scale: 2,
+        scale: 3,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a5'
       });
 
-      const imgProps = pdf.getImageProperties(imgData);
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      const pdfHeight = pdf.internal.pageSize.getHeight();
 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       pdf.save(`销售清单_${order.orderNo}.pdf`);
     } catch (error) {
       console.error('PDF generation failed:', error);
-      alert('生成PDF失败，请重试');
+      alert('生成PDF失败，请重试。错误信息: ' + (error instanceof Error ? error.message : String(error)));
     }
   };
 
@@ -140,7 +143,7 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
         <div className="flex-1 overflow-y-auto p-8 bg-slate-200/50 flex justify-center">
           <div 
             ref={printRef}
-            className="bg-white shadow-xl origin-top"
+            className="bg-white shadow-xl origin-top print-area-preview"
             style={{ 
               width: '148mm', 
               minHeight: '210mm',
@@ -152,26 +155,8 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
               boxSizing: 'border-box'
             }}
           >
-            <style>{`
-              @media print {
-                @page {
-                  size: A5 portrait;
-                  margin: 0;
-                }
-                body {
-                  margin: 0;
-                  padding: 0;
-                }
-                .print-area-preview {
-                  width: 148mm;
-                  height: 210mm;
-                  padding: 8mm;
-                  box-sizing: border-box;
-                }
-              }
-            `}</style>
             {/* Header Table */}
-            <table style={{ width: '100%', marginBottom: '15pt', borderCollapse: 'collapse', border: 'none' }}>
+            <table className="layout-table" style={{ width: '100%', marginBottom: '15pt', borderCollapse: 'collapse', border: 'none' }}>
               <tbody>
                 <tr>
                   <td style={{ width: '25%', border: 'none' }}></td>
@@ -207,7 +192,7 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
             </table>
 
             {/* Customer Info Table */}
-            <table style={{ width: '100%', marginBottom: '8pt', borderCollapse: 'collapse', border: 'none', borderBottom: '1pt solid black', paddingBottom: '6pt' }}>
+            <table className="layout-table" style={{ width: '100%', marginBottom: '8pt', borderCollapse: 'collapse', border: 'none', borderBottom: '1pt solid black', paddingBottom: '6pt' }}>
               <tbody>
                 <tr>
                   <td style={{ textAlign: 'left', fontSize: '10pt', border: 'none' }}>
@@ -218,7 +203,7 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
             </table>
 
             {/* Main Table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5pt solid black', marginBottom: '10pt', fontSize: '9pt' }}>
+            <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1.5pt solid black', marginBottom: '10pt', fontSize: '9pt' }}>
               <thead>
                 <tr style={{ height: '24pt', backgroundColor: '#f8fafc' }}>
                   <th style={{ border: '1pt solid black', width: '30pt', textAlign: 'center' }}>序号</th>
@@ -261,7 +246,7 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
               </tbody>
             </table>
 
-            <table style={{ width: '100%', fontSize: '10pt', lineHeight: '1.8', marginTop: '10pt', marginBottom: '10pt', borderCollapse: 'collapse', border: 'none' }}>
+            <table className="layout-table" style={{ width: '100%', fontSize: '10pt', lineHeight: '1.8', marginTop: '10pt', marginBottom: '10pt', borderCollapse: 'collapse', border: 'none' }}>
               <tbody>
                 <tr>
                   <td style={{ fontWeight: 'bold', paddingBottom: '4pt', border: 'none' }}>主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
