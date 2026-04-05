@@ -198,8 +198,8 @@ export default function Orders() {
     const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
 
     container.innerHTML = `
-      <div style="width: 132mm; color: black; font-family: 'SimSun', serif; display: flex; flex-direction: column; min-height: 194mm;">
-        <table style="width: 100%; margin-bottom: 15pt; border-collapse: collapse; border: none;">
+      <div style="width: 148mm; height: 210mm; padding: 8mm; box-sizing: border-box; background: white; color: black; font-family: 'SimSun', serif; display: flex; flex-direction: column;">
+        <table class="layout-table" style="width: 100%; margin-bottom: 15pt; border-collapse: collapse; border: none;">
           <tbody>
             <tr>
               <td style="width: 25%; border: none;"></td>
@@ -214,7 +214,7 @@ export default function Orders() {
           </tbody>
         </table>
 
-        <table style="width: 100%; margin-bottom: 8pt; border-collapse: collapse; border: none; border-bottom: 1pt solid black; padding-bottom: 6pt;">
+        <table class="layout-table" style="width: 100%; margin-bottom: 8pt; border-collapse: collapse; border: none; border-bottom: 1pt solid black; padding-bottom: 6pt;">
           <tbody>
             <tr>
               <td style="text-align: left; font-size: 10pt; border: none;">
@@ -224,7 +224,7 @@ export default function Orders() {
           </tbody>
         </table>
 
-        <table style="width: 100%; border-collapse: collapse; border: 1.5pt solid black; margin-bottom: 10pt; font-size: 9pt;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; border: 1.5pt solid black; margin-bottom: 10pt; font-size: 9pt;">
           <thead>
             <tr style="height: 24pt; background-color: #f8fafc;">
               <th style="border: 1pt solid black; width: 30pt; text-align: center;">序号</th>
@@ -264,7 +264,7 @@ export default function Orders() {
           </tbody>
         </table>
 
-        <table style="width: 100%; font-size: 10pt; line-height: 1.8; margin-top: 10pt; margin-bottom: 10pt; border-collapse: collapse; border: none;">
+        <table class="layout-table" style="width: 100%; font-size: 10pt; line-height: 1.8; margin-top: 10pt; margin-bottom: 10pt; border-collapse: collapse; border: none;">
           <tbody>
             <tr>
               <td style="font-weight: bold; padding-bottom: 4pt; border: none;">主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
@@ -298,10 +298,12 @@ export default function Orders() {
         scale: 3,
         useCORS: true,
         logging: false,
-        backgroundColor: '#ffffff'
+        backgroundColor: '#ffffff',
+        width: 148 * 3.78, // mm to px approx
+        height: 210 * 3.78
       });
       
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -312,6 +314,7 @@ export default function Orders() {
       pdf.save(`销售清单_${order.orderNo}.pdf`);
     } catch (error) {
       console.error('PDF generation failed:', error);
+      alert('生成PDF失败，请重试');
     } finally {
       document.body.removeChild(container);
     }
