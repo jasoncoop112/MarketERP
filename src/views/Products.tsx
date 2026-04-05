@@ -545,6 +545,30 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
     setIsSaving(true);
     console.log('Product Form Submit Started', formData);
     try {
+      // Check for duplicates
+      const allProducts = await db.products.toArray();
+      const existingName = allProducts.find(p => 
+        p.isDeleted !== 1 && 
+        p.name.trim() === (formData.name || '').trim() && 
+        p.id !== product?.id
+      );
+      if (existingName) {
+        alert(`商品名称 "${formData.name}" 已存在，请使用其他名称`);
+        setIsSaving(false);
+        return;
+      }
+
+      const existingCode = allProducts.find(p => 
+        p.isDeleted !== 1 && 
+        p.code.trim() === (formData.code || '').trim() && 
+        p.id !== product?.id
+      );
+      if (existingCode) {
+        alert(`商品编号 "${formData.code}" 已存在，请使用其他编号`);
+        setIsSaving(false);
+        return;
+      }
+
       // 增强拼音生成，处理数字和特殊字符
       const py = pinyin(formData.name || '', { 
         pattern: 'initial', 
