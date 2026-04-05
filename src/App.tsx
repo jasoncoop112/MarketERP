@@ -105,7 +105,7 @@ function PrintBill({ order }: { order: Order | null }) {
         minHeight: '100%'
       }}>
         {/* Header Table */}
-        <table style={{ width: '100%', marginBottom: '15pt', borderCollapse: 'collapse', border: 'none' }}>
+        <table className="layout-table" style={{ width: '100%', marginBottom: '15pt', borderCollapse: 'collapse', border: 'none' }}>
           <tbody>
             <tr>
               <td style={{ width: '25%', border: 'none' }}></td>
@@ -141,7 +141,7 @@ function PrintBill({ order }: { order: Order | null }) {
         </table>
 
         {/* Customer Info Table */}
-        <table style={{ width: '100%', marginBottom: '8pt', borderCollapse: 'collapse', border: 'none', borderBottom: '1pt solid black', paddingBottom: '6pt' }}>
+        <table className="layout-table" style={{ width: '100%', marginBottom: '8pt', borderCollapse: 'collapse', border: 'none', borderBottom: '1pt solid black', paddingBottom: '6pt' }}>
           <tbody>
             <tr>
               <td style={{ textAlign: 'left', fontSize: '10pt', border: 'none' }}>
@@ -152,7 +152,7 @@ function PrintBill({ order }: { order: Order | null }) {
         </table>
 
         {/* Main Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5pt solid black', marginBottom: '10pt', fontSize: '9pt' }}>
+        <table className="data-table" style={{ width: '100%', borderCollapse: 'collapse', border: '1.5pt solid black', marginBottom: '10pt', fontSize: '9pt' }}>
           <thead>
             <tr style={{ height: '24pt', backgroundColor: '#f8fafc' }}>
               <th style={{ border: '1pt solid black', width: '30pt', textAlign: 'center' }}>序号</th>
@@ -196,7 +196,7 @@ function PrintBill({ order }: { order: Order | null }) {
         </table>
 
         {/* Footer Table */}
-        <table style={{ width: '100%', fontSize: '10pt', lineHeight: '1.8', marginTop: '10pt', marginBottom: '10pt', borderCollapse: 'collapse', border: 'none' }}>
+        <table className="layout-table" style={{ width: '100%', fontSize: '10pt', lineHeight: '1.8', marginTop: '10pt', marginBottom: '10pt', borderCollapse: 'collapse', border: 'none' }}>
           <tbody>
             <tr>
               <td style={{ fontWeight: 'bold', paddingBottom: '4pt', border: 'none' }}>主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
@@ -226,24 +226,6 @@ function PrintBill({ order }: { order: Order | null }) {
 
   return (
     <div className="print-area">
-      <style>{`
-        @media print {
-          @page {
-            size: A5 portrait;
-            margin: 0;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-          }
-          .print-area {
-            width: 148mm;
-            height: 210mm;
-            padding: 8mm;
-            box-sizing: border-box;
-          }
-        }
-      `}</style>
       <div className="print-sheet">
         <BillContent copyTitle="第一联：商家留底" />
         <BillContent copyTitle="第二联：客户联" />

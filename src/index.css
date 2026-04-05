@@ -27,8 +27,8 @@
 /* Print Styles */
 @media print {
   @page {
-    size: A5;
-    margin: 8mm;
+    size: A5 portrait;
+    margin: 0;
   }
 
   body {
@@ -42,12 +42,16 @@
 
   .print-area {
     display: block !important;
-    width: 100%;
+    width: 148mm;
+    height: 210mm;
     background: white;
+    padding: 8mm;
+    box-sizing: border-box;
   }
 
   .print-sheet {
     width: 100%;
+    height: 100%;
   }
 
   .print-page {
@@ -67,8 +71,14 @@
     border-collapse: collapse !important;
   }
   
-  th, td {
+  /* Only apply borders to the main data table */
+  .data-table th, .data-table td {
     border: 1pt solid black !important;
+  }
+
+  /* Explicitly remove borders for layout tables */
+  .layout-table, .layout-table th, .layout-table td {
+    border: none !important;
   }
 
   * {
