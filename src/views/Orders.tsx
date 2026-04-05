@@ -199,25 +199,29 @@ export default function Orders() {
 
     container.innerHTML = `
       <div style="width: 132mm; color: black; font-family: 'SimSun', serif; display: flex; flex-direction: column; min-height: 194mm;">
-        <table style="width: 100%; margin-bottom: 15pt; border-collapse: collapse;">
-          <tr>
-            <td style="width: 25%;"></td>
-            <td style="width: 50%; text-align: center; vertical-align: bottom;">
-              <h1 style="font-size: 20pt; font-weight: bold; letter-spacing: 4pt; margin: 0; border-bottom: 2pt solid black; padding-bottom: 4pt; display: inline-block; white-space: nowrap;">席立志冷库销售清单</h1>
-            </td>
-            <td style="width: 25%; text-align: right; vertical-align: bottom; font-size: 9pt; line-height: 1.5; white-space: nowrap;">
-              <p style="margin: 0;">NO：${order.orderNo.replace('SO', '')}</p>
-              <p style="margin: 0;">开单日期：${format(new Date(order.createdAt), 'yyyy-MM-dd')}</p>
-            </td>
-          </tr>
+        <table style="width: 100%; margin-bottom: 15pt; border-collapse: collapse; border: none;">
+          <tbody>
+            <tr>
+              <td style="width: 25%; border: none;"></td>
+              <td style="width: 50%; text-align: center; vertical-align: bottom; border: none;">
+                <h1 style="font-size: 20pt; font-weight: bold; letter-spacing: 4pt; margin: 0; border-bottom: 2pt solid black; padding-bottom: 4pt; display: inline-block; white-space: nowrap; line-height: 1.2;">席立志冷库销售清单</h1>
+              </td>
+              <td style="width: 25%; text-align: right; vertical-align: bottom; font-size: 9pt; line-height: 1.5; white-space: nowrap; border: none;">
+                <p style="margin: 0;">NO：${order.orderNo.replace('SO', '')}</p>
+                <p style="margin: 0;">开单日期：${format(new Date(order.createdAt), 'yyyy-MM-dd')}</p>
+              </td>
+            </tr>
+          </tbody>
         </table>
 
-        <table style="width: 100%; margin-bottom: 8pt; border-bottom: 1pt solid black; padding-bottom: 6pt;">
-          <tr>
-            <td style="text-align: left; font-size: 10pt;">
-              客户名称：<span style="font-weight: bold; border-bottom: 1pt solid black; padding: 0 40pt;">${order.customerName}</span>
-            </td>
-          </tr>
+        <table style="width: 100%; margin-bottom: 8pt; border-collapse: collapse; border: none; border-bottom: 1pt solid black; padding-bottom: 6pt;">
+          <tbody>
+            <tr>
+              <td style="text-align: left; font-size: 10pt; border: none;">
+                客户名称：<span style="font-weight: bold; border-bottom: 1pt solid black; padding: 0 40pt;">${order.customerName}</span>
+              </td>
+            </tr>
+          </tbody>
         </table>
 
         <table style="width: 100%; border-collapse: collapse; border: 1.5pt solid black; margin-bottom: 10pt; font-size: 9pt;">
@@ -233,50 +237,52 @@ export default function Orders() {
           <tbody>
             ${displayItems.map((item, i) => `
               <tr style="height: 22pt; background-color: ${item.isBucket ? '#fefce8' : 'transparent'};">
-                <td style="border: 1px solid black; text-align: center;">${item.productId === -1 ? '' : (item.isBucket ? '*' : i + 1)}</td>
-                <td style="border: 1px solid black; padding: 0 4pt; font-weight: bold;">
+                <td style="border: 1pt solid black; text-align: center;">${item.productId === -1 ? '' : (item.isBucket ? '*' : i + 1)}</td>
+                <td style="border: 1pt solid black; padding: 0 4pt; font-weight: bold;">
                   ${item.isBucket ? `<span style="color: #854d0e;">${item.name}</span>` : item.name}
                 </td>
-                <td style="border: 1px solid black; text-align: center;">
+                <td style="border: 1pt solid black; text-align: center;">
                   ${item.productId === -1 ? '' : `
                     ${item.isBucket ? item.quantity : (item.pricingMethod === 'weight' ? item.quantity.toFixed(1) : Math.floor(item.quantity))}
                     <span style="margin-left: 2pt;">${item.unit}</span>
                   `}
                 </td>
-                <td style="border: 1px solid black; text-align: center;">
+                <td style="border: 1pt solid black; text-align: center;">
                   ${item.productId === -1 ? '' : (item.price || 0).toFixed(1) + '元'}
                 </td>
-                <td style="border: 1px solid black; text-align: right; padding: 0 4pt; font-weight: bold;">
+                <td style="border: 1pt solid black; text-align: right; padding: 0 4pt; font-weight: bold;">
                   ${item.productId === -1 ? '' : (item.total || 0).toFixed(1) + '元'}
                 </td>
               </tr>
             `).join('')}
             <tr style="height: 26pt; font-weight: bold; background-color: #f8fafc;">
-              <td style="border: 1px solid black; text-align: center;" colspan="2">合 计 (人民币大写): ________________________________</td>
-              <td style="border: 1px solid black; text-align: center;">${totalQuantity.toFixed(1)}</td>
-              <td style="border: 1px solid black;"></td>
-              <td style="border: 1px solid black; text-align: right; padding: 0 4pt;">${(order.finalAmount || 0).toFixed(1)}元</td>
+              <td style="border: 1pt solid black; text-align: center;" colspan="2">合 计 (人民币大写): ________________________________</td>
+              <td style="border: 1pt solid black; text-align: center;">${totalQuantity.toFixed(1)}</td>
+              <td style="border: 1pt solid black;"></td>
+              <td style="border: 1pt solid black; text-align: right; padding: 0 4pt;">${(order.finalAmount || 0).toFixed(1)}元</td>
             </tr>
           </tbody>
         </table>
 
-        <table style="width: 100%; font-size: 10pt; line-height: 1.8; margin-top: 10pt; margin-bottom: 10pt;">
-          <tr>
-            <td style="font-weight: bold; padding-bottom: 4pt;">主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
-          </tr>
-          <tr>
-            <td style="padding-bottom: 4pt; font-size: 9pt; color: #475569;">
-              <span style="font-weight: bold; color: #1e293b;">[桶账汇总]</span> 
-              &nbsp;本次押桶：${order.bucketsOut || 0} | 本次还桶：${order.bucketsIn || 0} | 
-              &nbsp;剩余未退：<span style="color: #e11d48; font-weight: bold;">${((customer?.bucketsOut || 0) - (customer?.bucketsIn || 0))}</span> 个
-            </td>
-          </tr>
-          <tr>
-            <td style="padding-bottom: 4pt;">地址：新发地A2-046 席立志冷库</td>
-          </tr>
-          <tr>
-            <td>电话：席立志 13966869019  陈影 13637198664</td>
-          </tr>
+        <table style="width: 100%; font-size: 10pt; line-height: 1.8; margin-top: 10pt; margin-bottom: 10pt; border-collapse: collapse; border: none;">
+          <tbody>
+            <tr>
+              <td style="font-weight: bold; padding-bottom: 4pt; border: none;">主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 4pt; font-size: 9pt; color: #475569; border: none;">
+                <span style="font-weight: bold; color: #1e293b;">[桶账汇总]</span> 
+                &nbsp;本次押桶：${order.bucketsOut || 0} | 本次还桶：${order.bucketsIn || 0} | 
+                &nbsp;剩余未退：<span style="color: #e11d48; font-weight: bold;">${((customer?.bucketsOut || 0) - (customer?.bucketsIn || 0))}</span> 个
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-bottom: 4pt; border: none;">地址：新发地A2-046 席立志冷库</td>
+            </tr>
+            <tr>
+              <td style="border: none;">电话：席立志 13966869019  陈影 13637198664</td>
+            </tr>
+          </tbody>
         </table>
 
         <div style="margin-top: auto; font-size: 11pt; border-top: 1pt dashed #cbd5e1; padding-top: 10pt; text-align: center; font-weight: bold;">
