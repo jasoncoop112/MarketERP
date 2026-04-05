@@ -304,15 +304,16 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 text-slate-900 font-sans overflow-hidden print:block print:h-auto print:bg-white print:overflow-visible">
+    <div className="flex h-screen font-sans overflow-hidden print:block print:h-auto print:bg-white print:overflow-visible" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>
       {/* Sidebar */}
       <motion.aside 
         initial={false}
         animate={{ width: isSidebarOpen ? 240 : 80 }}
-        className="bg-white border-r border-slate-200 flex flex-col shadow-sm z-20 print:hidden"
+        className="bg-white border-r flex flex-col shadow-sm z-20 print:hidden"
+        style={{ borderColor: '#e2e8f0' }}
       >
-        <div className="p-6 flex items-center gap-3 border-b border-slate-100">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shrink-0">
+        <div className="p-6 flex items-center gap-3 border-b" style={{ borderColor: '#f1f5f9' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white shrink-0" style={{ backgroundColor: '#4f46e5' }}>
             <Package size={20} />
           </div>
           {isSidebarOpen && (
@@ -327,22 +328,23 @@ export default function App() {
               onClick={() => setCurrentView(item.id as ViewType)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                 currentView === item.id 
-                  ? 'bg-indigo-50 text-indigo-600 font-medium' 
+                  ? 'font-medium' 
                   : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
               }`}
+              style={currentView === item.id ? { backgroundColor: '#eef2ff', color: '#4f46e5' } : {}}
             >
               <item.icon size={20} className="shrink-0" />
               {isSidebarOpen && <span>{item.label}</span>}
               {currentView === item.id && isSidebarOpen && (
-                <motion.div layoutId="active-nav" className="ml-auto w-1.5 h-1.5 bg-indigo-600 rounded-full" />
+                <motion.div layoutId="active-nav" className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: '#4f46e5' }} />
               )}
             </button>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-100 space-y-4">
-          <div className={`flex items-center gap-3 px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 ${!isSidebarOpen && 'justify-center'}`}>
-            <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+        <div className="p-4 border-t space-y-4" style={{ borderColor: '#f1f5f9' }}>
+          <div className={`flex items-center gap-3 px-3 py-2 rounded-xl border ${!isSidebarOpen && 'justify-center'}`} style={{ backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}>
+            <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 shrink-0" style={{ backgroundColor: '#e2e8f0' }}>
               <User size={18} />
             </div>
             {isSidebarOpen && (
@@ -364,7 +366,7 @@ export default function App() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden print:hidden">
         {/* Header */}
-        <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm shrink-0 z-10">
+        <header className="h-16 bg-white border-b px-8 flex items-center justify-between shadow-sm shrink-0 z-10" style={{ borderColor: '#e2e8f0' }}>
           <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold text-slate-800">
               {navItems.find(i => i.id === currentView)?.label}
@@ -375,28 +377,31 @@ export default function App() {
             <button 
               onClick={() => syncService.triggerSync()}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
-              syncStatus === 'syncing' ? 'bg-indigo-50 text-indigo-600 border-indigo-100 animate-pulse' :
-              syncStatus === 'error' ? 'bg-rose-50 text-rose-600 border-rose-100' :
-              'bg-emerald-50 text-emerald-600 border-emerald-100'
-            }`}>
+              syncStatus === 'syncing' ? 'animate-pulse' : ''
+            }`}
+            style={
+              syncStatus === 'syncing' ? { backgroundColor: '#eef2ff', color: '#4f46e5', borderColor: '#e0e7ff' } :
+              syncStatus === 'error' ? { backgroundColor: '#fff1f2', color: '#e11d48', borderColor: '#ffe4e6' } :
+              { backgroundColor: '#ecfdf5', color: '#059669', borderColor: '#d1fae5' }
+            }>
               {syncStatus === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 
                syncStatus === 'error' ? <CloudOff size={14} /> : <Cloud size={14} />}
               <span>{syncStatus === 'syncing' ? '正在同步云端...' : 
                      syncStatus === 'error' ? '同步失败 (点击重试)' : '云端已同步'}</span>
             </button>
 
-            <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 text-slate-600 shadow-inner">
+            <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-slate-600 shadow-inner" style={{ backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}>
               <Clock size={16} className="text-indigo-500" />
               <span className="text-sm font-mono font-medium">
                 {format(beijingTime, 'yyyy-MM-dd HH:mm:ss', { locale: zhCN })}
               </span>
-              <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold">北京时间</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ backgroundColor: '#e0e7ff', color: '#4f46e5' }}>北京时间</span>
             </div>
           </div>
         </header>
 
         {/* View Container */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto p-8" style={{ backgroundColor: '#f8fafc' }}>
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}
