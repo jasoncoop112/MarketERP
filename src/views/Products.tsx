@@ -324,6 +324,13 @@ export default function Products({ userRole }: ProductsProps) {
                     <History size={16} />
                   </button>
                   <button 
+                    onClick={() => { setSelectedProduct(product); setIsAddModalOpen(true); }}
+                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                    title="编辑商品"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button 
                     onClick={() => { setSelectedProduct(product); setIsPriceModalOpen(true); }}
                     className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 px-3 py-1.5 rounded-lg transition-all"
                   >
@@ -358,6 +365,10 @@ export default function Products({ userRole }: ProductsProps) {
           <ProductDetailsModal 
             product={selectedProduct} 
             onClose={() => setIsDetailsModalOpen(false)} 
+            onEdit={() => {
+              setIsDetailsModalOpen(false);
+              setIsAddModalOpen(true);
+            }}
           />
         )}
       </AnimatePresence>
@@ -368,6 +379,10 @@ export default function Products({ userRole }: ProductsProps) {
           <ProductFormModal 
             product={selectedProduct} 
             onClose={() => setIsAddModalOpen(false)} 
+            onDelete={async (id) => {
+              await handleDelete(id);
+              setIsAddModalOpen(false);
+            }}
           />
         )}
       </AnimatePresence>
@@ -407,7 +422,7 @@ export default function Products({ userRole }: ProductsProps) {
 
 // --- Sub-components ---
 
-function ProductDetailsModal({ product, onClose }: { product: Product, onClose: () => void }) {
+function ProductDetailsModal({ product, onClose, onEdit }: { product: Product, onClose: () => void, onEdit: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm" onClick={onClose}>
       <motion.div 
@@ -428,9 +443,18 @@ function ProductDetailsModal({ product, onClose }: { product: Product, onClose: 
                 <p className="text-sm text-slate-400 font-mono uppercase tracking-widest">{product.code}</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={onEdit}
+                className="p-2 hover:bg-indigo-50 text-indigo-600 rounded-full transition-colors"
+                title="编辑商品"
+              >
+                <Edit size={20} />
+              </button>
+              <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           <div className="space-y-6 flex-1">
@@ -478,6 +502,12 @@ function ProductDetailsModal({ product, onClose }: { product: Product, onClose: 
 
           <div className="mt-8 pt-6 border-t border-slate-100 flex gap-3">
             <button 
+              onClick={onEdit}
+              className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+            >
+              编辑商品
+            </button>
+            <button 
               onClick={onClose}
               className="flex-1 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all"
             >
@@ -490,7 +520,7 @@ function ProductDetailsModal({ product, onClose }: { product: Product, onClose: 
   );
 }
 
-function ProductFormModal({ product, onClose }: { product: Product | null, onClose: () => void }) {
+function ProductFormModal({ product, onClose, onDelete }: { product: Product | null, onClose: () => void, onDelete?: (id: number) => Promise<void> }) {
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<Product>>(product || {
     code: '',
@@ -716,7 +746,7 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">初始库存</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">{product ? '当前库存' : '初始库存'}</label>
               <NumberInput 
                 required
                 step={formData.pricingMethod === 'weight' ? "0.1" : "1"}
@@ -737,6 +767,16 @@ function ProductFormModal({ product, onClose }: { product: Product | null, onClo
             </div>
           </div>
           <div className="pt-6 border-t border-slate-100 flex justify-end gap-4">
+            {product && onDelete && (
+              <button 
+                type="button"
+                onClick={() => onDelete(product.id!)}
+                className="mr-auto px-6 py-2.5 text-rose-500 font-bold hover:bg-rose-50 rounded-xl transition-all flex items-center gap-2"
+              >
+                <Trash2 size={18} />
+                <span>删除商品</span>
+              </button>
+            )}
             <button 
               type="button"
               onClick={onClose}
