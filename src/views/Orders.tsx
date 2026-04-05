@@ -324,8 +324,8 @@ export default function Orders() {
     <div className="space-y-6">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6">
-          <div className="w-14 h-14 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+        <div className="p-6 rounded-3xl shadow-sm border flex items-center gap-6" style={{ backgroundColor: '#ffffff', borderColor: '#f1f5f9' }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white" style={{ backgroundColor: '#4f46e5', boxShadow: '0 10px 15px -3px rgba(79, 70, 229, 0.1), 0 4px 6px -2px rgba(79, 70, 229, 0.05)' }}>
             <DollarSign size={28} />
           </div>
           <div>
@@ -333,8 +333,8 @@ export default function Orders() {
             <p className="text-3xl font-black text-slate-900 font-mono">¥{stats.todaySales.toFixed(1)}</p>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex items-center gap-6">
-          <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+        <div className="p-6 rounded-3xl shadow-sm border flex items-center gap-6" style={{ backgroundColor: '#ffffff', borderColor: '#f1f5f9' }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white" style={{ backgroundColor: '#10b981', boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.1), 0 4px 6px -2px rgba(16, 185, 129, 0.05)' }}>
             <TrendingUp size={28} />
           </div>
           <div>
@@ -345,7 +345,7 @@ export default function Orders() {
       </div>
 
       {/* Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 rounded-2xl shadow-sm border" style={{ backgroundColor: '#ffffff', borderColor: '#f1f5f9' }}>
         <div className="flex flex-wrap items-center gap-4 flex-1">
           <div className="relative min-w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -354,12 +354,13 @@ export default function Orders() {
               placeholder="搜索单号或客户姓名..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              className="w-full pl-10 pr-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}
             />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+          <div className="flex items-center gap-2 border rounded-xl px-3 py-1.5" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
             <Filter size={14} className="text-slate-400" />
             <select 
               value={dateRange}
@@ -375,7 +376,7 @@ export default function Orders() {
           </div>
 
           {dateRange === 'custom' && (
-            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+            <div className="flex items-center gap-2 border rounded-xl px-3 py-1.5" style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}>
               <input 
                 type="date" 
                 value={startDate} 
@@ -395,7 +396,8 @@ export default function Orders() {
           <select 
             value={paymentStatus}
             onChange={(e) => setPaymentStatus(e.target.value as any)}
-            className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"
+            className="px-4 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 text-sm font-medium"
+            style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0' }}
           >
             <option value="all">全部状态</option>
             <option value="已支付">已结账</option>
@@ -421,7 +423,8 @@ export default function Orders() {
         </div>
         <button 
           onClick={handleExport}
-          className="flex items-center gap-2 px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl border border-slate-200 transition-all font-medium"
+          className="flex items-center gap-2 px-6 py-2 text-slate-600 hover:bg-slate-50 rounded-xl border transition-all font-medium"
+          style={{ borderColor: '#e2e8f0' }}
         >
           <Download size={18} />
           <span>导出 Excel</span>
@@ -429,11 +432,11 @@ export default function Orders() {
       </div>
 
       {/* Order Table */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="rounded-3xl shadow-sm border overflow-hidden" style={{ backgroundColor: '#ffffff', borderColor: '#f1f5f9' }}>
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/50 border-b border-slate-100">
+              <tr className="border-b" style={{ backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">单号 / 日期</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">客户</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">实付金额</th>
