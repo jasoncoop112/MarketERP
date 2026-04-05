@@ -108,9 +108,9 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
         className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+        <div className="px-8 py-4 border-b border-slate-100 flex items-center justify-between shrink-0" style={{ backgroundColor: '#f8fafc' }}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 text-indigo-600 rounded-xl flex items-center justify-center" style={{ backgroundColor: '#e0e7ff' }}>
               <Printer size={20} />
             </div>
             <div>
@@ -121,14 +121,16 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
           <div className="flex items-center gap-2">
             <button 
               onClick={handleDownloadPDF}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-600 font-bold rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100"
+              className="flex items-center gap-2 px-4 py-2 font-bold rounded-xl hover:bg-emerald-100 transition-all border border-emerald-100"
+              style={{ backgroundColor: '#ecfdf5', color: '#059669' }}
             >
               <FileDown size={18} />
               <span>下载 PDF</span>
             </button>
             <button 
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+              className="flex items-center gap-2 px-4 py-2 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+              style={{ backgroundColor: '#4f46e5' }}
             >
               <Printer size={18} />
               <span>立即打印</span>
@@ -140,10 +142,10 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
         </div>
 
         {/* Preview Area */}
-        <div className="flex-1 overflow-y-auto p-8 bg-slate-200/50 flex justify-center">
+        <div className="flex-1 overflow-y-auto p-8 flex justify-center" style={{ backgroundColor: '#e2e8f0' }}>
           <div 
             ref={printRef}
-            className="bg-white shadow-xl origin-top print-area-preview"
+            className="bg-white origin-top print-area-preview"
             style={{ 
               width: '148mm', 
               minHeight: '210mm',
@@ -152,7 +154,8 @@ export default function OrderPrintPreview({ order, onClose }: OrderPrintPreviewP
               padding: '8mm',
               display: 'flex',
               flexDirection: 'column',
-              boxSizing: 'border-box'
+              boxSizing: 'border-box',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
             }}
           >
             {/* Header Table */}
