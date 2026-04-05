@@ -105,44 +105,50 @@ function PrintBill({ order }: { order: Order | null }) {
         minHeight: '100%'
       }}>
         {/* Header Table */}
-        <table style={{ width: '100%', marginBottom: '15pt', borderCollapse: 'collapse' }}>
-          <tr>
-            <td style={{ width: '25%' }}></td>
-            <td style={{ width: '50%', textAlign: 'center', verticalAlign: 'bottom' }}>
-              <h1 style={{ 
-                fontSize: '20pt', 
-                fontWeight: 'bold', 
-                letterSpacing: '4pt', 
-                margin: 0, 
-                borderBottom: '2pt solid black', 
-                paddingBottom: '4pt', 
-                display: 'inline-block',
-                whiteSpace: 'nowrap'
+        <table style={{ width: '100%', marginBottom: '15pt', borderCollapse: 'collapse', border: 'none' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '25%', border: 'none' }}></td>
+              <td style={{ width: '50%', textAlign: 'center', verticalAlign: 'bottom', border: 'none' }}>
+                <h1 style={{ 
+                  fontSize: '20pt', 
+                  fontWeight: 'bold', 
+                  letterSpacing: '4pt', 
+                  margin: 0, 
+                  borderBottom: '2pt solid black', 
+                  paddingBottom: '4pt', 
+                  display: 'inline-block',
+                  whiteSpace: 'nowrap',
+                  lineHeight: '1.2'
+                }}>
+                  席立志冷库销售清单
+                </h1>
+              </td>
+              <td style={{ 
+                width: '25%', 
+                textAlign: 'right', 
+                verticalAlign: 'bottom', 
+                fontSize: '9pt', 
+                lineHeight: '1.5',
+                whiteSpace: 'nowrap',
+                border: 'none'
               }}>
-                席立志冷库销售清单
-              </h1>
-            </td>
-            <td style={{ 
-              width: '25%', 
-              textAlign: 'right', 
-              verticalAlign: 'bottom', 
-              fontSize: '9pt', 
-              lineHeight: '1.5',
-              whiteSpace: 'nowrap'
-            }}>
-              <p style={{ margin: 0 }}>NO：{order.orderNo.replace('SO', '')}</p>
-              <p style={{ margin: 0 }}>开单日期：{format(new Date(order.createdAt), 'yyyy-MM-dd')}</p>
-            </td>
-          </tr>
+                <p style={{ margin: 0 }}>NO：{order.orderNo.replace('SO', '')}</p>
+                <p style={{ margin: 0 }}>开单日期：{format(new Date(order.createdAt), 'yyyy-MM-dd')}</p>
+              </td>
+            </tr>
+          </tbody>
         </table>
 
         {/* Customer Info Table */}
-        <table style={{ width: '100%', marginBottom: '8pt', borderBottom: '1pt solid black', paddingBottom: '6pt' }}>
-          <tr>
-            <td style={{ textAlign: 'left', fontSize: '10pt' }}>
-              客户名称：<span style={{ fontWeight: 'bold', borderBottom: '1pt solid black', padding: '0 40pt' }}>{order.customerName}</span>
-            </td>
-          </tr>
+        <table style={{ width: '100%', marginBottom: '8pt', borderCollapse: 'collapse', border: 'none', borderBottom: '1pt solid black', paddingBottom: '6pt' }}>
+          <tbody>
+            <tr>
+              <td style={{ textAlign: 'left', fontSize: '10pt', border: 'none' }}>
+                客户名称：<span style={{ fontWeight: 'bold', borderBottom: '1pt solid black', padding: '0 40pt' }}>{order.customerName}</span>
+              </td>
+            </tr>
+          </tbody>
         </table>
 
         {/* Main Table */}
@@ -190,23 +196,25 @@ function PrintBill({ order }: { order: Order | null }) {
         </table>
 
         {/* Footer Table */}
-        <table style={{ width: '100%', fontSize: '10pt', lineHeight: '1.8', marginTop: '10pt', marginBottom: '10pt' }}>
-          <tr>
-            <td style={{ fontWeight: 'bold', paddingBottom: '4pt' }}>主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
-          </tr>
-          <tr>
-            <td style={{ paddingBottom: '4pt', fontSize: '9pt', color: '#475569' }}>
-              <span style={{ fontWeight: 'bold', color: '#1e293b' }}>[桶账汇总]</span> 
-              &nbsp;本次押桶：{order.bucketsOut || 0} | 本次还桶：{order.bucketsIn || 0} | 
-              &nbsp;剩余未退：<span style={{ color: '#e11d48', fontWeight: 'bold' }}>{((customer?.bucketsOut || 0) - (customer?.bucketsIn || 0))}</span> 个
-            </td>
-          </tr>
-          <tr>
-            <td style={{ paddingBottom: '4pt' }}>地址：新发地A2-046 席立志冷库</td>
-          </tr>
-          <tr>
-            <td>电话：席立志 13966869019  陈影 13637198664</td>
-          </tr>
+        <table style={{ width: '100%', fontSize: '10pt', lineHeight: '1.8', marginTop: '10pt', marginBottom: '10pt', borderCollapse: 'collapse', border: 'none' }}>
+          <tbody>
+            <tr>
+              <td style={{ fontWeight: 'bold', paddingBottom: '4pt', border: 'none' }}>主营：鸡、鸭、鸡血、鸭血、盒装鸭血、鸡鸭副产、鸡鲜品、宫保鸡丁、鱼块等</td>
+            </tr>
+            <tr>
+              <td style={{ paddingBottom: '4pt', fontSize: '9pt', color: '#475569', border: 'none' }}>
+                <span style={{ fontWeight: 'bold', color: '#1e293b' }}>[桶账汇总]</span> 
+                &nbsp;本次押桶：{order.bucketsOut || 0} | 本次还桶：{order.bucketsIn || 0} | 
+                &nbsp;剩余未退：<span style={{ color: '#e11d48', fontWeight: 'bold' }}>{((customer?.bucketsOut || 0) - (customer?.bucketsIn || 0))}</span> 个
+              </td>
+            </tr>
+            <tr>
+              <td style={{ paddingBottom: '4pt', border: 'none' }}>地址：新发地A2-046 席立志冷库</td>
+            </tr>
+            <tr>
+              <td style={{ border: 'none' }}>电话：席立志 13966869019  陈影 13637198664</td>
+            </tr>
+          </tbody>
         </table>
 
         <div style={{ marginTop: 'auto', fontSize: '11pt', borderTop: '1pt dashed #cbd5e1', paddingTop: '10pt', textAlign: 'center', fontWeight: 'bold' }}>
@@ -218,6 +226,24 @@ function PrintBill({ order }: { order: Order | null }) {
 
   return (
     <div className="print-area">
+      <style>{`
+        @media print {
+          @page {
+            size: A5 portrait;
+            margin: 0;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
+          .print-area {
+            width: 148mm;
+            height: 210mm;
+            padding: 8mm;
+            box-sizing: border-box;
+          }
+        }
+      `}</style>
       <div className="print-sheet">
         <BillContent copyTitle="第一联：商家留底" />
         <BillContent copyTitle="第二联：客户联" />
