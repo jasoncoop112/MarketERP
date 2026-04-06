@@ -7,7 +7,8 @@ export interface Product {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: number | boolean;
+  sync_status?: number; // 0: synced, 1: dirty
+  isDeleted?: number;
   code: string;
   name: string;
   pinyin: string; // For searching
@@ -31,7 +32,8 @@ export interface Customer {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: number | boolean;
+  sync_status?: number;
+  isDeleted?: number;
   name: string;
   pinyin: string; // For searching
   phone: string;
@@ -57,7 +59,8 @@ export interface Order {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: number | boolean;
+  sync_status?: number;
+  isDeleted?: number;
   orderNo: string;
   customerId?: number;
   customerName: string;
@@ -77,7 +80,8 @@ export interface OperationLog {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: number | boolean;
+  sync_status?: number;
+  isDeleted?: number;
   user: string;
   action: string;
   details: string;
@@ -88,7 +92,8 @@ export interface Repayment {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: number | boolean;
+  sync_status?: number;
+  isDeleted?: number;
   customerId: number;
   customerName: string;
   amount: number;
@@ -107,7 +112,8 @@ export interface StockMovement {
   id?: number;
   appwriteId?: string;
   updatedAt?: string;
-  isDeleted?: number | boolean;
+  sync_status?: number;
+  isDeleted?: number;
   productId: number;
   productName: string;
   type: '入库' | '出库' | '盘点' | '销售' | '退货';

@@ -242,20 +242,23 @@ export default function App() {
   const [printOrder, setPrintOrder] = useState<Order | null>(null);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'error'>('idle');
 
+  const lastSyncInfo = useLiveQuery(() => db.syncStatus.get('lastSync'));
+  const lastSyncTimeStr = useMemo(() => {
+    if (!lastSyncInfo?.lastSync) return '从未同步';
+    return format(new Date(lastSyncInfo.lastSync), 'HH:mm:ss');
+  }, [lastSyncInfo]);
+
   // Auto-sync every 30 seconds
   useEffect(() => {
     const doSync = async () => {
       console.log('Auto-sync started...');
       setSyncStatus('syncing');
       try {
-        const didSync = await syncService.syncAll();
-        if (didSync) {
-          console.log('Auto-sync completed successfully');
-          setSyncStatus('idle');
-        }
+        await syncService.syncAll();
       } catch (error) {
         console.error('Auto-sync failed:', error);
-        setSyncStatus('error');
+      } finally {
+        setSyncStatus(syncService.getStatus());
       }
     };
 
@@ -386,8 +389,11 @@ export default function App() {
             }>
               {syncStatus === 'syncing' ? <RefreshCw size={14} className="animate-spin" /> : 
                syncStatus === 'error' ? <CloudOff size={14} /> : <Cloud size={14} />}
-              <span>{syncStatus === 'syncing' ? '正在同步云端...' : 
-                     syncStatus === 'error' ? '同步失败 (点击重试)' : '云端已同步'}</span>
+              <div className="flex flex-col items-start leading-none">
+                <span>{syncStatus === 'syncing' ? '正在同步云端...' : 
+                       syncStatus === 'error' ? '同步失败 (点击重试)' : '云端已同步'}</span>
+                <span className="text-[9px] opacity-70 mt-0.5">上次同步: {lastSyncTimeStr}</span>
+              </div>
             </button>
 
             <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border text-slate-600 shadow-inner" style={{ backgroundColor: '#f8fafc', borderColor: '#f1f5f9' }}>

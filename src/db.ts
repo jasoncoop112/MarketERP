@@ -33,38 +33,49 @@ export class MyDatabase extends Dexie {
       stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
       syncStatus: 'key',
     });
-    this.version(3).stores({
-      products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId',
-      customers: '++id, name, pinyin, phone, updatedAt, isDeleted, appwriteId',
-      orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId',
-      logs: '++id, user, action, createdAt, updatedAt, isDeleted, appwriteId',
-      stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
-      repayments: '++id, customerId, customerName, method, createdAt, updatedAt, isDeleted, appwriteId',
+    this.version(4).stores({
+      products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId, sync_status',
+      customers: '++id, name, pinyin, phone, updatedAt, isDeleted, appwriteId, sync_status',
+      orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId, sync_status',
+      logs: '++id, user, action, createdAt, updatedAt, isDeleted, appwriteId, sync_status',
+      stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId, sync_status',
+      repayments: '++id, customerId, customerName, method, createdAt, updatedAt, isDeleted, appwriteId, sync_status',
       searchHistory: '++id, keyword, updatedAt',
       syncStatus: 'key',
     });
 
-    // Auto-set updatedAt on any change
+    // Auto-set updatedAt and sync_status on any change
     const setUpdatedAt = (mods: any, primKey: any, obj: any) => {
       // If _isSync is present, it means the update is from the sync service
-      // We should remove the flag and NOT auto-update updatedAt
       if (mods._isSync) {
         delete mods._isSync;
+        // When syncing from cloud, we mark as synced (0)
+        if (mods.sync_status === undefined) {
+          mods.sync_status = 0;
+        }
         return;
       }
       
-      // Only set updatedAt if it's not already being set
+      // Local change: mark as dirty (1) and update timestamp
+      mods.sync_status = 1;
       if (!mods.updatedAt) {
         mods.updatedAt = new Date().toISOString();
       }
     };
 
     const setCreatedAt = (primKey: any, obj: any) => {
+      if (obj._isSync) {
+        delete obj._isSync;
+        if (obj.sync_status === undefined) obj.sync_status = 0;
+      } else {
+        obj.sync_status = 1;
+      }
+
       if (!obj.updatedAt) {
         obj.updatedAt = new Date().toISOString();
       }
       // Use 0/1 for isDeleted to ensure reliable indexing
-      obj.isDeleted = 0;
+      if (obj.isDeleted === undefined) obj.isDeleted = 0;
     };
 
     ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments', 'searchHistory'].forEach(table => {
