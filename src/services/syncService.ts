@@ -199,11 +199,19 @@ export class SyncService {
 
                                 if (existingDocId) {
                                     const doc = await databases.updateDocument(DATABASE_ID, collectionId, existingDocId, payload);
-                                    await table.update(id, { appwriteId: doc.$id, _isSync: true });
+                                    await table.update(id, { 
+                                        appwriteId: doc.$id, 
+                                        _isSync: true,
+                                        updatedAt: doc.$updatedAt // 关键修复：同步本地时间为服务器时间
+                                    });
                                     return doc;
                                 } else {
                                     const doc = await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), payload);
-                                    await table.update(id, { appwriteId: doc.$id, _isSync: true });
+                                    await table.update(id, { 
+                                        appwriteId: doc.$id, 
+                                        _isSync: true,
+                                        updatedAt: doc.$updatedAt // 关键修复：同步本地时间为服务器时间
+                                    });
                                     return doc;
                                 }
                             }
@@ -229,30 +237,48 @@ export class SyncService {
 
         // 2. 拉取云端变更
         try {
-            const pullStartTime = new Date(new Date(lastSyncTime).getTime() - 5 * 60 * 1000).toISOString();
-            const response = await databases.listDocuments(DATABASE_ID, collectionId, [
-                Query.greaterThan('$updatedAt', pullStartTime),
-                Query.limit(100)
-            ]);
+            // 使用更宽松的窗口，并处理分页
+            const pullStartTime = new Date(new Date(lastSyncTime).getTime() - 10 * 60 * 1000).toISOString();
+            let offset = 0;
+            let hasMore = true;
 
-            for (const doc of response.documents) {
-                const data = this.prepareFromAppwrite(doc);
-                const localItem = await table.where('appwriteId').equals(doc.$id).first()
-                    || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
-                    || (data.code ? await table.where('code').equals(data.code).first() : null)
-                    || (tableName === 'customers' && data.name ? await table.where('name').equals(data.name).first() : null);
+            while (hasMore) {
+                const response = await databases.listDocuments(DATABASE_ID, collectionId, [
+                    Query.greaterThan('$updatedAt', pullStartTime),
+                    Query.limit(100),
+                    Query.offset(offset)
+                ]);
 
-                if (localItem) {
-                    if (new Date(doc.$updatedAt) > new Date(localItem.updatedAt)) {
-                        await table.update(localItem.id, { ...data, appwriteId: doc.$id, _isSync: true });
-                    } else if (!localItem.appwriteId) {
-                        await table.update(localItem.id, { appwriteId: doc.$id, _isSync: true });
-                    }
-                } else {
-                    // 确保不带入 Appwrite 的系统字段或冲突的本地 ID
-                    const { id: _, ...newData } = data;
-                    await table.add({ ...newData, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
+                if (response.documents.length === 0) {
+                    hasMore = false;
+                    break;
                 }
+
+                for (const doc of response.documents) {
+                    const data = this.prepareFromAppwrite(doc);
+                    const localItem = await table.where('appwriteId').equals(doc.$id).first()
+                        || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
+                        || (data.code ? await table.where('code').equals(data.code).first() : null)
+                        || (tableName === 'customers' && data.name ? await table.where('name').equals(data.name).first() : null);
+
+                    if (localItem) {
+                        // 如果云端时间不同且本地没有更晚的未同步修改，则更新
+                        const serverTime = new Date(doc.$updatedAt).getTime();
+                        const localTime = new Date(localItem.updatedAt).getTime();
+                        
+                        if (serverTime > localTime) {
+                            await table.update(localItem.id, { ...data, appwriteId: doc.$id, _isSync: true });
+                        } else if (!localItem.appwriteId) {
+                            await table.update(localItem.id, { appwriteId: doc.$id, _isSync: true });
+                        }
+                    } else {
+                        const { id: _, ...newData } = data;
+                        await table.add({ ...newData, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
+                    }
+                }
+
+                offset += response.documents.length;
+                if (offset >= response.total) hasMore = false;
             }
         } catch (e: any) {
             console.error(`Pull error for ${tableName}:`, e);
