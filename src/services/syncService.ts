@@ -10,6 +10,7 @@ import type { Product, Customer, Order, OperationLog, StockMovement } from '../t
 
 export class SyncService {
     private static isSyncing = false;
+    private static syncStatus: 'idle' | 'syncing' | 'error' = 'idle';
     private static sessionInitialized = false;
     private static lastSyncResults: Record<string, { success: boolean; error?: string }> = {};
 
