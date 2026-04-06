@@ -18,6 +18,10 @@ export class SyncService {
         return this.lastSyncResults;
     }
 
+    static getStatus() {
+        return this.syncStatus;
+    }
+
     private static async initSession() {
         if (this.sessionInitialized) return;
         try {
@@ -94,6 +98,9 @@ export class SyncService {
         try {
             await this.initSession();
 
+            // 1. 同步前先清理本地重复数据
+            await this.cleanupDuplicates();
+
             const tables: [string, string][] = [
                 ['products', COLLECTIONS.PRODUCTS],
                 ['customers', COLLECTIONS.CUSTOMERS],
@@ -108,19 +115,11 @@ export class SyncService {
                     console.log(`Syncing table: ${tableName}...`);
                     await this.syncTable(tableName, collectionId);
                     results[tableName] = { success: true };
-                    console.log(`Successfully synced table: ${tableName}`);
                 } catch (tableError: any) {
                     hasError = true;
                     const errorMsg = tableError.message || String(tableError);
                     results[tableName] = { success: false, error: errorMsg };
-                    
-                    if (tableError.code === 404) {
-                        console.warn(`⚠️ 集合 [${collectionId}] 不存在，已跳过。`);
-                    } else if (tableError.code === 401) {
-                        console.error(`❌ [${tableName}] 权限不足 (401): 请在 Appwrite 控制台为该集合开启 'Any' 角色的所有权限。`);
-                    } else {
-                        console.error(`❌ [${tableName}] 同步失败:`, tableError);
-                    }
+                    console.error(`❌ [${tableName}] 同步失败:`, tableError);
                 }
             }
             
@@ -141,7 +140,7 @@ export class SyncService {
         } catch (error) {
             console.error('❌ 同步服务异常:', error);
             this.syncStatus = 'error';
-            throw error; // 抛出错误以便 UI 捕获
+            throw error;
         } finally {
             this.isSyncing = false;
         }
@@ -150,30 +149,82 @@ export class SyncService {
     static async resetSync() {
         console.log('🧹 重置同步状态...');
         await db.syncStatus.clear();
+        // 重置所有表的 sync_status 为 1，强制下次同步重新检查
+        const tables = ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments'];
+        for (const tableName of tables) {
+            await (db as any)[tableName].toCollection().modify({ sync_status: 1 });
+        }
         console.log('✅ 同步状态已重置，下次将进行全量拉取。');
+    }
+
+    /**
+     * 清理本地重复数据（基于业务主键：商品代码、客户姓名、订单号）
+     */
+    private static async cleanupDuplicates() {
+        console.log('🔍 正在检查并清理本地重复数据...');
+        
+        const tables = [
+            { name: 'products', keyField: 'code' },
+            { name: 'customers', keyField: 'name' }
+        ];
+
+        for (const { name, keyField } of tables) {
+            const table = (db as any)[name];
+            const items = await table.toArray();
+            const seen = new Map<string, any>();
+
+            for (const item of items) {
+                const val = item[keyField];
+                if (!val) continue;
+                const key = String(val).trim().toLowerCase();
+
+                if (seen.has(key)) {
+                    const existing = seen.get(key);
+                    // 优先级：有 appwriteId > 更新时间晚 > ID 小
+                    let toKeep = existing;
+                    let toDelete = item;
+
+                    const existingTime = new Date(existing.updatedAt || 0).getTime();
+                    const itemTime = new Date(item.updatedAt || 0).getTime();
+
+                    if (!existing.appwriteId && item.appwriteId) {
+                        toKeep = item;
+                        toDelete = existing;
+                    } else if (existing.appwriteId && item.appwriteId) {
+                        if (itemTime > existingTime) {
+                            toKeep = item;
+                            toDelete = existing;
+                        }
+                    } else if (!existing.appwriteId && !item.appwriteId) {
+                        if (itemTime > existingTime) {
+                            toKeep = item;
+                            toDelete = existing;
+                        }
+                    }
+
+                    console.warn(`[Cleanup] Deleting duplicate ${name} (${key}): keeping ${toKeep.id}, deleting ${toDelete.id}`);
+                    await table.delete(toDelete.id);
+                    seen.set(key, toKeep);
+                } else {
+                    seen.set(key, item);
+                }
+            }
+        }
+        console.log('✅ 本地重复数据清理完成');
     }
 
     private static async syncTable(tableName: string, collectionId: string) {
         const table = (db as any)[tableName];
         if (!table) return;
 
-        // 分离推送和拉取的检查点，彻底解决时钟偏差问题
-        const pushKey = `lastPush_${tableName}`;
         const pullKey = `lastPull_${tableName}`;
-        
-        const lastPushState = await db.syncStatus.get(pushKey).catch(() => null);
         const lastPullState = await db.syncStatus.get(pullKey).catch(() => null);
-        
-        // 推送使用本地时间，拉取使用服务器时间
-        const lastPushTime = lastPushState?.lastSync || new Date(0).toISOString();
         const lastPullTime = lastPullState?.lastSync || new Date(0).toISOString();
         const isFullSync = lastPullTime === new Date(0).toISOString();
 
-        // 记录本次同步开始的本地时间，用于更新 pushKey
-        const currentSyncLocalTime = new Date().toISOString();
+        // 1. 推送本地变更 (使用 sync_status 标记，不再依赖时间戳，彻底解决同步循环)
+        const localChanges = await table.where('sync_status').equals(1).toArray().catch(() => []);
         
-        // 1. 推送本地变更 (对比本地最后推送时间)
-        const localChanges = await table.where('updatedAt').above(lastPushTime).toArray().catch(() => []);
         if (localChanges.length > 0) {
             console.log(`[Sync] Pushing ${localChanges.length} changes for ${tableName}`);
             for (const item of localChanges) {
@@ -198,7 +249,7 @@ export class SyncService {
                             if (appwriteId) {
                                 return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
                             } else {
-                                // 尝试通过业务 ID 匹配云端
+                                // 尝试通过业务 ID 匹配云端，防止重复创建
                                 let existingDocId = null;
                                 const searchField = payload.orderNo ? 'orderNo' : (payload.code ? 'code' : (payload.name ? 'name' : null));
                                 const searchValue = payload.orderNo || payload.code || payload.name;
@@ -234,23 +285,22 @@ export class SyncService {
                     };
 
                     const doc = await pushToAppwrite(preparedData);
-                    // 推送成功后，将本地记录同步为服务器状态
+                    // 推送成功后，标记为已同步 (sync_status: 0)
                     await table.update(id, { 
                         appwriteId: doc.$id, 
                         _isSync: true,
-                        updatedAt: doc.$updatedAt // 同步为服务器时间
+                        sync_status: 0,
+                        updatedAt: doc.$updatedAt
                     });
                 } catch (err: any) {
                     console.error(`[Sync] Failed to push item ${item.id} in ${tableName}:`, err);
                 }
             }
-            // 更新本地推送检查点
-            await db.syncStatus.put({ key: pushKey, lastSync: currentSyncLocalTime });
         }
 
-        // 2. 拉取云端变更 (对比服务器最后更新时间)
+        // 2. 拉取云端变更
         try {
-            const pullStartTime = new Date(new Date(lastPullTime).getTime() - 5 * 60 * 1000).toISOString();
+            const pullStartTime = new Date(new Date(lastPullTime).getTime() - 2 * 60 * 1000).toISOString();
             let offset = 0;
             let hasMore = true;
             let maxServerUpdatedAt = lastPullTime;
@@ -268,25 +318,41 @@ export class SyncService {
                     if (doc.$updatedAt > maxServerUpdatedAt) maxServerUpdatedAt = doc.$updatedAt;
                     
                     const data = this.prepareFromAppwrite(doc);
-                    const localItem = await table.where('appwriteId').equals(doc.$id).first()
-                        || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
-                        || (data.code ? await table.where('code').equals(data.code).first() : null)
-                        || (tableName === 'customers' && data.name ? await table.where('name').equals(data.name).first() : null);
+                    
+                    // 改进本地查找逻辑，使用 trim() 处理空格
+                    let localItem = await table.where('appwriteId').equals(doc.$id).first();
+                    
+                    if (!localItem) {
+                        if (data.orderNo) {
+                            localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
+                        } else if (data.code) {
+                            localItem = await table.where('code').equals(data.code.trim()).first();
+                        } else if (tableName === 'customers' && data.name) {
+                            localItem = await table.where('name').equals(data.name.trim()).first();
+                        }
+                    }
 
                     if (localItem) {
                         const serverTime = new Date(doc.$updatedAt).getTime();
                         const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
                         
-                        // 强制更新条件：
-                        // 1. 处于全量同步模式 (isFullSync)
-                        // 2. 服务器时间晚于本地时间
-                        // 3. 本地还没有 appwriteId
                         if (isFullSync || isNaN(localTime) || serverTime > localTime || !localItem.appwriteId) {
-                            await table.update(localItem.id, { ...data, appwriteId: doc.$id, _isSync: true });
+                            await table.update(localItem.id, { 
+                                ...data, 
+                                appwriteId: doc.$id, 
+                                _isSync: true,
+                                sync_status: 0 
+                            });
                         }
                     } else {
                         const { id: _, ...newData } = data;
-                        await table.put({ ...newData, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
+                        await table.put({ 
+                            ...newData, 
+                            appwriteId: doc.$id, 
+                            isDeleted: data.isDeleted ?? 0,
+                            _isSync: true,
+                            sync_status: 0
+                        });
                     }
                 }
 
@@ -294,7 +360,6 @@ export class SyncService {
                 if (offset >= response.total) hasMore = false;
             }
             
-            // 更新服务器拉取检查点
             await db.syncStatus.put({ key: pullKey, lastSync: maxServerUpdatedAt });
         } catch (e: any) {
             console.error(`[Sync] Pull error for ${tableName}:`, e);
