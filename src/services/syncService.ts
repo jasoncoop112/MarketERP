@@ -85,6 +85,7 @@ export class SyncService {
     static async syncAll(): Promise<boolean> {
         if (this.isSyncing) return false;
         this.isSyncing = true;
+        this.syncStatus = 'syncing';
         console.log('🔄 开始全量同步...');
         let hasError = false;
         const results: Record<string, { success: boolean; error?: string }> = {};
@@ -123,6 +124,7 @@ export class SyncService {
             }
             
             this.lastSyncResults = results;
+            this.syncStatus = hasError ? 'error' : 'idle';
             
             if (hasError) {
                 const failedTables = Object.entries(results)
@@ -137,10 +139,17 @@ export class SyncService {
             return true;
         } catch (error) {
             console.error('❌ 同步服务异常:', error);
+            this.syncStatus = 'error';
             throw error; // 抛出错误以便 UI 捕获
         } finally {
             this.isSyncing = false;
         }
+    }
+
+    static async resetSync() {
+        console.log('🧹 重置同步状态...');
+        await db.syncStatus.clear();
+        console.log('✅ 同步状态已重置，下次将进行全量拉取。');
     }
 
     private static async syncTable(tableName: string, collectionId: string) {
@@ -242,6 +251,8 @@ export class SyncService {
             let offset = 0;
             let hasMore = true;
 
+            let maxUpdatedAt = lastSyncTime;
+
             while (hasMore) {
                 const response = await databases.listDocuments(DATABASE_ID, collectionId, [
                     Query.greaterThan('$updatedAt', pullStartTime),
@@ -255,6 +266,7 @@ export class SyncService {
                 }
 
                 for (const doc of response.documents) {
+                    if (doc.$updatedAt > maxUpdatedAt) maxUpdatedAt = doc.$updatedAt;
                     const data = this.prepareFromAppwrite(doc);
                     const localItem = await table.where('appwriteId').equals(doc.$id).first()
                         || (data.orderNo ? await table.where('orderNo').equals(data.orderNo).first() : null)
@@ -264,28 +276,31 @@ export class SyncService {
                     if (localItem) {
                         // 如果云端时间不同且本地没有更晚的未同步修改，则更新
                         const serverTime = new Date(doc.$updatedAt).getTime();
-                        const localTime = new Date(localItem.updatedAt).getTime();
+                        const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
                         
-                        if (serverTime > localTime) {
+                        // 增加容错：如果 localTime 是 NaN，则强制更新
+                        if (isNaN(localTime) || serverTime > localTime) {
                             await table.update(localItem.id, { ...data, appwriteId: doc.$id, _isSync: true });
                         } else if (!localItem.appwriteId) {
                             await table.update(localItem.id, { appwriteId: doc.$id, _isSync: true });
                         }
                     } else {
                         const { id: _, ...newData } = data;
-                        await table.add({ ...newData, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
+                        // 使用 put 而不是 add，防止 ID 冲突
+                        await table.put({ ...newData, appwriteId: doc.$id, isDeleted: data.isDeleted ?? 0 });
                     }
                 }
 
                 offset += response.documents.length;
                 if (offset >= response.total) hasMore = false;
             }
+            
+            // 更新该表的最后同步时间为本次拉取到的最晚时间
+            await db.syncStatus.put({ key: syncKey, lastSync: maxUpdatedAt });
         } catch (e: any) {
             console.error(`Pull error for ${tableName}:`, e);
             if (e.code !== 404) throw e;
         }
-
-        await db.syncStatus.put({ key: syncKey, lastSync: new Date().toISOString() });
     }
 
     private static async uploadImage(base64: string): Promise<string> {
