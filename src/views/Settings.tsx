@@ -283,14 +283,30 @@ export default function SettingsView({ userRole }: SettingsProps) {
                   系统会自动在后台同步您的订单、商品和客户数据。如果同步不及时，您可以点击下方按钮手动触发。
                 </p>
               </div>
-              <button 
-                onClick={handleManualSync}
-                disabled={isSyncing}
-                className="w-full py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
-                <span>立即同步数据</span>
-              </button>
+              <div className="flex flex-col md:flex-row gap-4 w-full">
+                <button 
+                  onClick={handleManualSync}
+                  disabled={isSyncing}
+                  className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isSyncing ? <RefreshCw size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                  <span>立即同步数据</span>
+                </button>
+                <button 
+                  onClick={async () => {
+                    if (confirm('确定要重置同步状态吗？这不会删除数据，但会强制从云端重新拉取所有变更。')) {
+                      await syncService.resetSync();
+                      alert('同步状态已重置，正在开始全量同步...');
+                      handleManualSync();
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="px-6 py-3 bg-slate-100 text-slate-600 font-bold rounded-xl hover:bg-slate-200 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Trash2 size={18} />
+                  <span>重置同步</span>
+                </button>
+              </div>
             </div>
           </div>
 
