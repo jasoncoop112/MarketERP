@@ -307,6 +307,51 @@ export default function SettingsView({ userRole }: SettingsProps) {
                   <span>重置同步</span>
                 </button>
               </div>
+
+              {/* 强制推送按钮 */}
+              <div className="w-full pt-2 border-t border-slate-100">
+                <button 
+                  onClick={async () => {
+                    if (confirm('确定要强制重新推送所有本地数据到云端吗？这通常用于解决同步不一致的问题。')) {
+                      setIsSyncing(true);
+                      try {
+                        const success = await syncService.forcePushAll();
+                        if (success) alert('强制推送成功！');
+                        else alert('部分数据推送失败，请检查连接验证。');
+                      } catch (e: any) {
+                        alert('强制推送失败: ' + e.message);
+                      } finally {
+                        setIsSyncing(false);
+                      }
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="w-full py-2 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
+                >
+                  <Upload size={14} />
+                  <span>强制重新推送所有本地数据</span>
+                </button>
+              </div>
+
+              {/* 同步错误详情 */}
+              {syncService.getStatus() === 'error' && (
+                <div className="w-full mt-4 p-4 bg-rose-50 border border-rose-100 rounded-2xl text-left">
+                  <div className="flex items-center gap-2 text-rose-600 mb-2">
+                    <AlertTriangle size={16} />
+                    <span className="text-sm font-bold">同步出现错误</span>
+                  </div>
+                  <div className="space-y-1">
+                    {Object.entries(syncService.getLastSyncResults())
+                      .filter(([_, res]) => !res.success)
+                      .map(([name, res]) => (
+                        <div key={name} className="text-[10px] text-rose-500 flex flex-col">
+                          <span className="font-bold uppercase tracking-widest">{name}:</span>
+                          <span className="break-all opacity-80">{res.error}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
