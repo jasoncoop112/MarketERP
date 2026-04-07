@@ -131,19 +131,32 @@ export class SyncService {
                     .filter(([_, res]) => !res.success)
                     .map(([name, _]) => name)
                     .join(', ');
-                throw new Error(`部分数据表同步失败: ${failedTables}`);
+                console.warn(`部分数据表同步失败: ${failedTables}`);
+            } else {
+                await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
+                console.log('✅ 全量同步完成');
             }
             
-            await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
-            console.log('✅ 全量同步完成');
-            return true;
+            return !hasError;
         } catch (error) {
             console.error('❌ 同步服务异常:', error);
             this.syncStatus = 'error';
-            throw error;
+            return false;
         } finally {
             this.isSyncing = false;
         }
+    }
+
+    static async forcePushAll() {
+        console.log('🚀 强制重新推送所有本地数据...');
+        const tables = ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments'];
+        for (const tableName of tables) {
+            const table = (db as any)[tableName];
+            if (table) {
+                await table.toCollection().modify({ sync_status: 1 });
+            }
+        }
+        return this.syncAll();
     }
 
     static async resetSync() {
