@@ -42,6 +42,17 @@ export class MyDatabase extends Dexie {
       repayments: '++id, customerId, customerName, method, createdAt, updatedAt, isDeleted, appwriteId, sync_status',
       searchHistory: '++id, keyword, updatedAt',
       syncStatus: 'key',
+    }).upgrade(async (tx) => {
+      // Initialize sync_status for all records during migration
+      const tables = ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments'];
+      for (const tableName of tables) {
+        await tx.table(tableName).toCollection().modify(obj => {
+          if (obj.sync_status === undefined) {
+            // If it has an appwriteId, assume it was synced, otherwise it's dirty
+            obj.sync_status = obj.appwriteId ? 0 : 1;
+          }
+        });
+      }
     });
 
     // Auto-set updatedAt and sync_status on any change
