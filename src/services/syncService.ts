@@ -299,6 +299,12 @@ export class SyncService {
                     };
 
                     const doc = await pushToAppwrite(preparedData);
+                    
+                    // 检查 isDeleted 是否成功保存到云端
+                    if (preparedData.isDeleted === 1 && doc.isDeleted !== 1) {
+                        console.error(`[Sync] ⚠️ 关键错误: isDeleted 标记未能在 Appwrite 中保存 (${tableName}:${doc.$id})。请检查 Appwrite 集合属性中是否存在 isDeleted (Integer) 字段。`);
+                    }
+
                     // 推送成功后，标记为已同步 (sync_status: 0)
                     await table.update(id, { 
                         appwriteId: doc.$id, 
@@ -353,10 +359,11 @@ export class SyncService {
                         const serverTime = new Date(doc.$updatedAt).getTime();
                         const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
                         
-                        // 策略：如果本地没有未同步的变更，或者云端时间更新，则覆盖本地
+                        // 策略：如果本地没有未同步的变更，或者云端时间不一致，则覆盖本地
                         const isDirty = localItem.sync_status === 1;
                         
-                        if (isFullSync || !isDirty || serverTime > localTime || !localItem.appwriteId) {
+                        if (isFullSync || !isDirty || serverTime !== localTime || !localItem.appwriteId) {
+                            if (data.isDeleted === 1) console.log(`[Sync] Pulled deletion for ${tableName}: ${doc.$id}`);
                             await table.update(localItem.id, { 
                                 ...data, 
                                 appwriteId: doc.$id, 
@@ -516,7 +523,8 @@ export class SyncService {
             ...data, 
             appwriteId: $id, 
             updatedAt: $updatedAt,
-            createdAt: data.createdAt || $createdAt
+            createdAt: data.createdAt || $createdAt,
+            isDeleted: data.isDeleted ?? 0
         };
         
         // 移除可能带入的本地 ID，防止冲突
