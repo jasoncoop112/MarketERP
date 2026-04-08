@@ -255,7 +255,8 @@ export class SyncService {
                         }
                     }
 
-                    const preparedData = this.prepareForAppwrite(tableName, data);
+                    // --- 关键修复：将本地 ID 转换为 Appwrite ID ---
+                    const preparedData = await this.mapLocalToAppwrite(tableName, data);
 
                     const pushToAppwrite = async (payload: any, retryCount = 0): Promise<any> => {
                         try {
@@ -313,7 +314,8 @@ export class SyncService {
 
         // 2. 拉取云端变更
         try {
-            const pullStartTime = new Date(new Date(lastPullTime).getTime() - 2 * 60 * 1000).toISOString();
+            // 增加缓冲时间，确保不漏掉临界点的数据
+            const pullStartTime = new Date(new Date(lastPullTime).getTime() - 5 * 60 * 1000).toISOString();
             let offset = 0;
             let hasMore = true;
             let maxServerUpdatedAt = lastPullTime;
@@ -321,6 +323,7 @@ export class SyncService {
             while (hasMore) {
                 const response = await databases.listDocuments(DATABASE_ID, collectionId, [
                     Query.greaterThan('$updatedAt', pullStartTime),
+                    Query.orderAsc('$updatedAt'),
                     Query.limit(100),
                     Query.offset(offset)
                 ]);
@@ -328,11 +331,12 @@ export class SyncService {
                 if (response.documents.length === 0) break;
 
                 for (const doc of response.documents) {
-                    if (doc.$updatedAt > maxServerUpdatedAt) maxServerUpdatedAt = doc.$updatedAt;
+                    // 记录最大的更新时间，用于下次同步
+                    if (doc.$updatedAt >= maxServerUpdatedAt) maxServerUpdatedAt = doc.$updatedAt;
                     
-                    const data = this.prepareFromAppwrite(doc);
+                    // --- 关键修复：将 Appwrite ID 转换回本地 ID ---
+                    const data = await this.mapAppwriteToLocal(tableName, doc);
                     
-                    // 改进本地查找逻辑，使用 trim() 处理空格
                     let localItem = await table.where('appwriteId').equals(doc.$id).first();
                     
                     if (!localItem) {
@@ -349,7 +353,10 @@ export class SyncService {
                         const serverTime = new Date(doc.$updatedAt).getTime();
                         const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
                         
-                        if (isFullSync || isNaN(localTime) || serverTime > localTime || !localItem.appwriteId) {
+                        // 策略：如果本地没有未同步的变更，或者云端时间更新，则覆盖本地
+                        const isDirty = localItem.sync_status === 1;
+                        
+                        if (isFullSync || !isDirty || serverTime > localTime || !localItem.appwriteId) {
                             await table.update(localItem.id, { 
                                 ...data, 
                                 appwriteId: doc.$id, 
@@ -373,11 +380,102 @@ export class SyncService {
                 if (offset >= response.total) hasMore = false;
             }
             
-            await db.syncStatus.put({ key: pullKey, lastSync: maxServerUpdatedAt });
+            // 只有在确实拉取到新数据或者初始同步时才更新 lastSync
+            if (maxServerUpdatedAt > lastPullTime || isFullSync) {
+                await db.syncStatus.put({ key: pullKey, lastSync: maxServerUpdatedAt });
+            }
         } catch (e: any) {
             console.error(`[Sync] Pull error for ${tableName}:`, e);
             if (e.code !== 404) throw e;
         }
+    }
+
+    private static async mapLocalToAppwrite(tableName: string, data: any) {
+        const payload = this.prepareForAppwrite(tableName, data);
+
+        // 转换 Order 的 customerId
+        if (tableName === 'orders' && payload.customerId) {
+            const customer = await db.customers.get(payload.customerId);
+            if (customer?.appwriteId) {
+                payload.customerAppwriteId = customer.appwriteId;
+            }
+        }
+
+        // 转换 OrderItems 的 productId
+        if (tableName === 'orders' && payload.items) {
+            try {
+                const items = JSON.parse(payload.items);
+                for (const item of items) {
+                    if (item.productId) {
+                        const product = await db.products.get(item.productId);
+                        if (product?.appwriteId) {
+                            item.productAppwriteId = product.appwriteId;
+                        }
+                    }
+                }
+                payload.items = JSON.stringify(items);
+            } catch (e) {}
+        }
+
+        // 转换 Repayment 的 customerId
+        if (tableName === 'repayments' && payload.customerId) {
+            const customer = await db.customers.get(payload.customerId);
+            if (customer?.appwriteId) {
+                payload.customerAppwriteId = customer.appwriteId;
+            }
+        }
+
+        // 转换 StockMovement 的 productId
+        if (tableName === 'stockMovements' && payload.productId) {
+            const product = await db.products.get(payload.productId);
+            if (product?.appwriteId) {
+                payload.productAppwriteId = product.appwriteId;
+            }
+        }
+
+        return payload;
+    }
+
+    private static async mapAppwriteToLocal(tableName: string, doc: any) {
+        const data = this.prepareFromAppwrite(doc);
+
+        // 转换 Order 的 customerAppwriteId -> customerId
+        if (tableName === 'orders' && data.customerAppwriteId) {
+            const customer = await db.customers.where('appwriteId').equals(data.customerAppwriteId).first();
+            if (customer) {
+                data.customerId = customer.id;
+            }
+        }
+
+        // 转换 OrderItems 的 productAppwriteId -> productId
+        if (tableName === 'orders' && data.items) {
+            for (const item of data.items) {
+                if (item.productAppwriteId) {
+                    const product = await db.products.where('appwriteId').equals(item.productAppwriteId).first();
+                    if (product) {
+                        item.productId = product.id;
+                    }
+                }
+            }
+        }
+
+        // 转换 Repayment 的 customerAppwriteId -> customerId
+        if (tableName === 'repayments' && data.customerAppwriteId) {
+            const customer = await db.customers.where('appwriteId').equals(data.customerAppwriteId).first();
+            if (customer) {
+                data.customerId = customer.id;
+            }
+        }
+
+        // 转换 StockMovement 的 productAppwriteId -> productId
+        if (tableName === 'stockMovements' && data.productAppwriteId) {
+            const product = await db.products.where('appwriteId').equals(data.productAppwriteId).first();
+            if (product) {
+                data.productId = product.id;
+            }
+        }
+
+        return data;
     }
 
     private static async uploadImage(base64: string): Promise<string> {
