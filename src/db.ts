@@ -33,7 +33,7 @@ export class MyDatabase extends Dexie {
       stockMovements: '++id, productId, productName, type, createdAt, updatedAt, isDeleted, appwriteId',
       syncStatus: 'key',
     });
-    this.version(4).stores({
+    this.version(5).stores({
       products: '++id, code, name, pinyin, category, updatedAt, isDeleted, appwriteId, sync_status',
       customers: '++id, name, pinyin, phone, updatedAt, isDeleted, appwriteId, sync_status',
       orders: '++id, orderNo, customerId, customerName, status, createdAt, updatedAt, isDeleted, appwriteId, sync_status',
@@ -43,13 +43,16 @@ export class MyDatabase extends Dexie {
       searchHistory: '++id, keyword, updatedAt',
       syncStatus: 'key',
     }).upgrade(async (tx) => {
-      // Initialize sync_status for all records during migration
+      // Initialize sync_status and isDeleted for all records during migration
       const tables = ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments'];
       for (const tableName of tables) {
         await tx.table(tableName).toCollection().modify(obj => {
           if (obj.sync_status === undefined) {
             // If it has an appwriteId, assume it was synced, otherwise it's dirty
             obj.sync_status = obj.appwriteId ? 0 : 1;
+          }
+          if (obj.isDeleted === undefined) {
+            obj.isDeleted = 0;
           }
         });
       }
