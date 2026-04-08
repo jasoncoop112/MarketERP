@@ -69,9 +69,7 @@ export class MyDatabase extends Dexie {
       
       // Local change: mark as dirty (1) and update timestamp
       mods.sync_status = 1;
-      if (!mods.updatedAt) {
-        mods.updatedAt = new Date().toISOString();
-      }
+      mods.updatedAt = new Date().toISOString();
     };
 
     const setCreatedAt = (primKey: any, obj: any) => {
@@ -82,9 +80,7 @@ export class MyDatabase extends Dexie {
         obj.sync_status = 1;
       }
 
-      if (!obj.updatedAt) {
-        obj.updatedAt = new Date().toISOString();
-      }
+      obj.updatedAt = new Date().toISOString();
       // Use 0/1 for isDeleted to ensure reliable indexing
       if (obj.isDeleted === undefined) obj.isDeleted = 0;
     };
