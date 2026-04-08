@@ -43,8 +43,7 @@ interface ProductsProps {
 
 export default function Products({ userRole }: ProductsProps) {
   const products = useLiveQuery(async () => {
-    const all = await db.products.toArray();
-    return all.filter(p => p.isDeleted !== 1);
+    return await db.products.where('isDeleted').notEqual(1).toArray();
   }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('全部');
@@ -137,6 +136,7 @@ export default function Products({ userRole }: ProductsProps) {
     if (confirm('确定要删除该商品吗？')) {
       try {
         await db.products.update(id, { isDeleted: 1 });
+        await syncService.triggerSync();
         await db.logs.add({
           user: '管理员',
           action: '删除商品',

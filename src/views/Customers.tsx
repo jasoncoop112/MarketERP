@@ -44,8 +44,7 @@ import { pinyin } from 'pinyin-pro';
 
 export default function Customers() {
   const customers = useLiveQuery(async () => {
-    const all = await db.customers.toArray();
-    return all.filter(c => c.isDeleted !== 1);
+    return await db.customers.where('isDeleted').notEqual(1).toArray();
   }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -69,6 +68,7 @@ export default function Customers() {
     if (confirm('确定要删除该客户吗？')) {
       try {
         await db.customers.update(id, { isDeleted: 1 });
+        await syncService.triggerSync();
         await db.logs.add({
           user: '管理员',
           action: '删除客户',
@@ -990,9 +990,10 @@ function CustomerStatementModal({ customer, onClose }: { customer: Customer, onC
     db.orders.where('customerId').equals(customer.id!).reverse().toArray()
   ) || [];
   
-  const repayments = useLiveQuery(() => 
-    db.repayments.where('customerId').equals(customer.id!).reverse().toArray()
-  ) || [];
+  const repayments = useLiveQuery(async () => {
+    const items = await db.repayments.where('customerId').equals(customer.id!).reverse().toArray();
+    return items.filter(r => r.isDeleted !== 1);
+  }) || [];
 
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -1022,6 +1023,37 @@ function CustomerStatementModal({ customer, onClose }: { customer: Customer, onC
       alert('生成PDF失败，请重试');
     } finally {
       setIsGenerating(false);
+    }
+  };
+
+  const handleDeleteRepayment = async (repayment: Repayment) => {
+    if (confirm(`确定要删除这条 ¥${repayment.amount} 的还款记录吗？删除后客户欠款将增加。`)) {
+      try {
+        // 1. Mark repayment as deleted
+        await db.repayments.update(repayment.id!, { isDeleted: 1 });
+        
+        // 2. Restore customer debt
+        const currentCustomer = await db.customers.get(customer.id!);
+        if (currentCustomer) {
+          await db.customers.update(customer.id!, {
+            debt: (currentCustomer.debt || 0) + repayment.amount
+          });
+        }
+
+        // 3. Log action
+        await db.logs.add({
+          user: '管理员',
+          action: '删除还款',
+          details: `删除了客户 ${customer.name} 的还款记录 ID: ${repayment.id}，金额: ¥${repayment.amount}。欠款已恢复。`,
+          createdAt: new Date().toISOString()
+        });
+
+        // 4. Trigger sync
+        await syncService.triggerSync();
+      } catch (error) {
+        console.error('Repayment Delete Error:', error);
+        alert('删除失败，请重试');
+      }
     }
   };
 
@@ -1121,15 +1153,26 @@ function CustomerStatementModal({ customer, onClose }: { customer: Customer, onC
                       )}
                     </td>
                     <td className="py-4 text-right">
-                      <p className={`text-sm font-black font-mono ${
-                        item.type === 'order' ? 'text-slate-900' : 'text-emerald-600'
-                      }`}>
-                        {item.type === 'order' ? '+' : '-'}¥{
-                          item.type === 'order' 
-                            ? (item.data as Order).finalAmount.toFixed(1) 
-                            : (item.data as Repayment).amount.toFixed(1)
-                        }
-                      </p>
+                      <div className="flex items-center justify-end gap-2">
+                        <p className={`text-sm font-black font-mono ${
+                          item.type === 'order' ? 'text-slate-900' : 'text-emerald-600'
+                        }`}>
+                          {item.type === 'order' ? '+' : '-'}¥{
+                            item.type === 'order' 
+                              ? (item.data as Order).finalAmount.toFixed(1) 
+                              : (item.data as Repayment).amount.toFixed(1)
+                          }
+                        </p>
+                        {item.type === 'repayment' && (
+                          <button 
+                            onClick={() => handleDeleteRepayment(item.data as Repayment)}
+                            className="p-1 text-slate-300 hover:text-rose-500 transition-colors"
+                            title="删除还款记录"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

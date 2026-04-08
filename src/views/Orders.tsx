@@ -38,12 +38,11 @@ import OrderPrintPreview from '../components/OrderPrintPreview';
 
 export default function Orders() {
   const orders = useLiveQuery(async () => {
-    const all = await db.orders.toArray();
-    return all.filter(o => o.isDeleted !== 1).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const items = await db.orders.where('isDeleted').notEqual(1).toArray();
+    return items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }) || [];
   const customers = useLiveQuery(async () => {
-    const all = await db.customers.toArray();
-    return all.filter(c => c.isDeleted !== 1);
+    return await db.customers.where('isDeleted').notEqual(1).toArray();
   }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState<'today' | 'week' | 'month' | 'custom' | 'all'>('all');

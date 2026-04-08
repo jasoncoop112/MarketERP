@@ -31,16 +31,13 @@ import { format, startOfDay, subDays, isSameDay } from 'date-fns';
 
 export default function Dashboard() {
   const products = useLiveQuery(async () => {
-    const all = await db.products.toArray();
-    return all.filter(p => p.isDeleted !== 1);
+    return await db.products.where('isDeleted').notEqual(1).toArray();
   }) || [];
   const orders = useLiveQuery(async () => {
-    const all = await db.orders.toArray();
-    return all.filter(o => o.isDeleted !== 1);
+    return await db.orders.where('isDeleted').notEqual(1).toArray();
   }) || [];
   const customers = useLiveQuery(async () => {
-    const all = await db.customers.toArray();
-    return all.filter(c => c.isDeleted !== 1);
+    return await db.customers.where('isDeleted').notEqual(1).toArray();
   }) || [];
 
   // Stats calculations
