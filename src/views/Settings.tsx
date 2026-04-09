@@ -306,6 +306,26 @@ export default function SettingsView({ userRole }: SettingsProps) {
                   <Trash2 size={18} />
                   <span>重置同步</span>
                 </button>
+                <button 
+                  onClick={async () => {
+                    if (confirm('确定要清理本地重复数据吗？系统将尝试合并名称或编号完全一致的记录。建议在操作前先备份数据。')) {
+                      setIsSyncing(true);
+                      try {
+                        await syncService.cleanupDuplicates();
+                        alert('本地重复数据清理完成！');
+                      } catch (err: any) {
+                        alert('清理失败: ' + err.message);
+                      } finally {
+                        setIsSyncing(false);
+                      }
+                    }
+                  }}
+                  disabled={isSyncing}
+                  className="px-6 py-3 bg-amber-50 text-amber-600 font-bold rounded-xl hover:bg-amber-100 transition-all disabled:opacity-50 flex items-center justify-center gap-2 border border-amber-200"
+                >
+                  <ShieldAlert size={18} />
+                  <span>清理重复</span>
+                </button>
               </div>
 
               {/* 强制推送按钮 */}
