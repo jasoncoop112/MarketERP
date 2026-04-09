@@ -193,22 +193,27 @@ export class SyncService {
 
                 if (seen.has(key)) {
                     const existing = seen.get(key);
-                    // 优先级：有 appwriteId > 更新时间晚 > ID 小
+                    // 优先级：有 appwriteId > 已删除标记 > 更新时间晚 > ID 小
                     let toKeep = existing;
                     let toDelete = item;
 
                     const existingTime = new Date(existing.updatedAt || 0).getTime();
                     const itemTime = new Date(item.updatedAt || 0).getTime();
 
-                    if (!existing.appwriteId && item.appwriteId) {
+                    const score = (obj: any) => {
+                        let s = 0;
+                        if (obj.appwriteId) s += 1000;
+                        if (obj.isDeleted === 1) s += 500;
+                        return s;
+                    };
+
+                    const existingScore = score(existing);
+                    const itemScore = score(item);
+
+                    if (itemScore > existingScore) {
                         toKeep = item;
                         toDelete = existing;
-                    } else if (existing.appwriteId && item.appwriteId) {
-                        if (itemTime > existingTime) {
-                            toKeep = item;
-                            toDelete = existing;
-                        }
-                    } else if (!existing.appwriteId && !item.appwriteId) {
+                    } else if (itemScore === existingScore) {
                         if (itemTime > existingTime) {
                             toKeep = item;
                             toDelete = existing;
@@ -358,11 +363,29 @@ export class SyncService {
                     if (localItem) {
                         const serverTime = new Date(doc.$updatedAt).getTime();
                         const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
-                        
-                        // 策略：如果本地没有未同步的变更，或者云端时间不一致，则覆盖本地
                         const isDirty = localItem.sync_status === 1;
                         
-                        if (isFullSync || !isDirty || serverTime !== localTime || !localItem.appwriteId) {
+                        // 核心冲突解决策略：
+                        // 1. 如果本地标记为已删除 (isDeleted: 1)，除非云端有更晚的更新，否则绝不恢复。
+                        // 2. 如果本地有未同步变更 (isDirty)，除非云端时间严格晚于本地，否则不覆盖。
+                        // 3. 如果本地已同步，且云端时间更晚，则更新本地。
+                        
+                        let shouldOverwrite = isFullSync || !localItem.appwriteId;
+                        
+                        if (!shouldOverwrite) {
+                            // 只有当云端数据确实比本地新时，才考虑覆盖
+                            if (serverTime > localTime) {
+                                shouldOverwrite = true;
+                            }
+                        }
+
+                        // 特殊保护：防止“已删除”状态被旧的云端数据（isDeleted: 0）覆盖
+                        // 核心原则：一旦本地标记为删除，除非云端有更晚的删除记录，否则绝不恢复为“未删除”
+                        if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
+                            shouldOverwrite = false;
+                        }
+
+                        if (shouldOverwrite) {
                             if (data.isDeleted === 1) console.log(`[Sync] Pulled deletion for ${tableName}: ${doc.$id}`);
                             await table.update(localItem.id, { 
                                 ...data, 
@@ -504,7 +527,7 @@ export class SyncService {
             'stock', 'minStock', 'debt', 'totalSpent', 'amount', 'quantity', 
             'totalAmount', 'discount', 'finalAmount', 'bucketsOut', 'bucketsIn', 'depositAmount',
             'receivedAmount', 'previousStock', 'currentStock', 'searchCount',
-            'customerId', 'productId', 'isDeleted'
+            'isDeleted'
         ];
         numericFields.forEach(f => {
             if (data[f] !== undefined && data[f] !== null) {
