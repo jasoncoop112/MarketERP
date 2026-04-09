@@ -389,10 +389,16 @@ export class SyncService {
                         try {
                             const fileId = await this.uploadImage(data.image);
                             data.image = fileId;
-                            await table.update(id, { image: fileId, _isSync: true });
+                            // 同步更新本地，标记为已同步图片
+                            await table.update(id, { image: fileId });
                         } catch (uploadErr) {
-                            console.error('Image upload failed during sync:', uploadErr);
+                            console.error('Image upload failed during sync, clearing image from payload to avoid 400 error:', uploadErr);
+                            // 如果上传失败，不要把 base64 发给数据库，否则会报 400 (Value too long)
+                            data.image = ''; 
                         }
+                    } else if (tableName === 'products' && data.image && data.image.length > 2000) {
+                        // 最后的防线：如果图片字符串依然异常长，强制清理，防止卡死同步
+                        data.image = '';
                     }
 
                     // --- 关键修复：将本地 ID 转换为 Appwrite ID ---
@@ -436,6 +442,7 @@ export class SyncService {
                                 delete newPayload[attrName];
                                 return await pushToAppwrite(newPayload, retryCount + 1);
                             }
+                            console.error(`[Sync] Appwrite Push Error (${tableName}:${item.id}):`, err.message);
                             throw err;
                         }
                     };
@@ -678,7 +685,27 @@ export class SyncService {
         delete data.appwriteId;
         delete data.sync_status;
         delete data._isSync;
+        delete data.pinyin; // 拼音字段通常不在云端 schema 中，本地生成即可
         
+        // 确保没有 null 值，Appwrite 对 null 值校验较严
+        Object.keys(data).forEach(key => {
+            if (data[key] === null || data[key] === undefined) {
+                // 根据字段类型赋予默认空值
+                const numericFields = [
+                    'purchasePrice', 'wholesalePrice', 'retailPrice', 'price2', 'price3', 
+                    'stock', 'minStock', 'debt', 'totalSpent', 'amount', 'quantity', 
+                    'totalAmount', 'discount', 'finalAmount', 'bucketsOut', 'bucketsIn', 'depositAmount',
+                    'receivedAmount', 'previousStock', 'currentStock', 'searchCount',
+                    'isDeleted'
+                ];
+                if (numericFields.includes(key)) {
+                    data[key] = 0;
+                } else {
+                    data[key] = '';
+                }
+            }
+        });
+
         // 强制转换数值，防止 Appwrite 报错
         const numericFields = [
             'purchasePrice', 'wholesalePrice', 'retailPrice', 'price2', 'price3', 
