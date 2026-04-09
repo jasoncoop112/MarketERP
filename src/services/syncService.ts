@@ -5,7 +5,7 @@
 
 import { ID, Query } from 'appwrite';
 import { db } from '../db';
-import { databases, DATABASE_ID, COLLECTIONS, storage, BUCKET_ID, account } from '../appwrite';
+import { databases, DATABASE_ID, COLLECTIONS, storage, BUCKET_ID, account, client } from '../appwrite';
 import type { Product, Customer, Order, OperationLog, StockMovement } from '../types';
 
 export class SyncService {
@@ -126,15 +126,17 @@ export class SyncService {
             this.lastSyncResults = results;
             this.syncStatus = hasError ? 'error' : 'idle';
             
-            if (hasError) {
-                const failedTables = Object.entries(results)
-                    .filter(([_, res]) => !res.success)
-                    .map(([name, _]) => name)
-                    .join(', ');
-                console.warn(`部分数据表同步失败: ${failedTables}`);
-            } else {
+            // 只要有关键表同步成功，就更新同步时间，避免因为日志等次要表失败导致一直显示“从未同步”
+            const criticalTables = ['products', 'customers', 'orders'];
+            const criticalSuccess = criticalTables.every(t => results[t]?.success);
+
+            if (criticalSuccess) {
                 await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
-                console.log('✅ 全量同步完成');
+                if (!hasError) {
+                    console.log('✅ 全量同步完成');
+                } else {
+                    console.warn('⚠️ 同步完成，但部分次要表存在错误');
+                }
             }
             
             return !hasError;
@@ -168,6 +170,105 @@ export class SyncService {
             await (db as any)[tableName].toCollection().modify({ sync_status: 1 });
         }
         console.log('✅ 同步状态已重置，下次将进行全量拉取。');
+    }
+
+    /**
+     * 订阅 Appwrite 实时更新 (Realtime)
+     * 像大型游戏一样，实现秒级同步
+     */
+    static subscribeToRealtime() {
+        console.log('🚀 正在启动实时同步订阅...');
+        
+        const tables: [string, string][] = [
+            ['products', COLLECTIONS.PRODUCTS],
+            ['customers', COLLECTIONS.CUSTOMERS],
+            ['orders', COLLECTIONS.ORDERS],
+            ['logs', COLLECTIONS.LOGS],
+            ['stockMovements', COLLECTIONS.STOCK_MOVEMENTS],
+            ['repayments', COLLECTIONS.REPAYMENTS]
+        ];
+
+        const channels = tables.map(([_, collId]) => `databases.${DATABASE_ID}.collections.${collId}.documents`);
+
+        return client.subscribe(channels, async (response) => {
+            const { events, payload } = response;
+            const eventType = events[0]; // e.g., databases.default.collections.products.documents.69d70...create
+            
+            // 提取表名
+            const collId = eventType.split('.')[3];
+            const tableName = tables.find(([_, id]) => id === collId)?.[0];
+            
+            if (!tableName) return;
+            const table = (db as any)[tableName];
+            if (!table) return;
+
+            console.log(`[Realtime] 📥 收到云端更新 (${tableName}):`, eventType);
+
+            try {
+                if (eventType.endsWith('.delete')) {
+                    // 物理删除（通常我们用软删除，但如果有人在后台删了，我们也同步）
+                    const docId = (payload as any).$id;
+                    const localItem = await table.where('appwriteId').equals(docId).first();
+                    if (localItem) {
+                        await table.delete(localItem.id);
+                        console.log(`[Realtime] 🗑️ 已同步物理删除: ${tableName}:${docId}`);
+                    }
+                } else {
+                    // 创建或更新
+                    const doc = payload as any;
+                    const data = await this.mapAppwriteToLocal(tableName, doc);
+                    
+                    let localItem = await table.where('appwriteId').equals(doc.$id).first();
+                    
+                    // 如果没找到 appwriteId，尝试通过业务 ID 匹配
+                    if (!localItem) {
+                        if (data.orderNo) {
+                            localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
+                        } else if (data.code) {
+                            localItem = await table.where('code').equals(data.code.trim()).first();
+                        } else if (tableName === 'customers' && data.name) {
+                            localItem = await table.where('name').equals(data.name.trim()).first();
+                        }
+                    }
+
+                    if (localItem) {
+                        const serverTime = new Date(doc.$updatedAt).getTime();
+                        const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
+                        
+                        // 冲突解决：云端必须比本地新，或者是强制同步
+                        if (serverTime > localTime) {
+                            // 保护本地删除状态
+                            if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
+                                console.log(`[Realtime] 🛡️ 保护本地删除状态: ${tableName}:${doc.$id}`);
+                                return;
+                            }
+
+                            await table.update(localItem.id, {
+                                ...data,
+                                appwriteId: doc.$id,
+                                _isSync: true,
+                                sync_status: 0
+                            });
+                            console.log(`[Realtime] ✅ 已同步更新: ${tableName}:${doc.$id}`);
+                        }
+                    } else {
+                        // 新增数据
+                        await table.add({
+                            ...data,
+                            appwriteId: doc.$id,
+                            _isSync: true,
+                            sync_status: 0
+                        });
+                        console.log(`[Realtime] ✨ 已同步新增: ${tableName}:${doc.$id}`);
+                    }
+                }
+                
+                // 实时更新成功后，也更新一下“上次同步时间”
+                await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
+            } catch (err) {
+                console.error(`[Realtime] 同步处理失败 (${tableName}):`, err);
+            }
+        });
     }
 
     /**
@@ -400,6 +501,11 @@ export class SyncService {
                         // 核心原则：一旦本地标记为删除，除非云端有更晚的删除记录，否则绝不恢复为“未删除”
                         if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
                             shouldOverwrite = false;
+                            // 关键修复：如果本地已删除但云端没删，且云端数据较旧，
+                            // 必须确保本地标记为“待同步”，以便将删除状态推送到云端。
+                            if (localItem.sync_status !== 1) {
+                                await table.update(localItem.id, { sync_status: 1, _isSync: true });
+                            }
                         }
 
                         if (shouldOverwrite) {
