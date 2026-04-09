@@ -81,16 +81,20 @@ export class SyncService {
         return status;
     }
 
-    // 触发同步（兼容旧调用）
+    private static syncTimeout: any = null;
+    // 触发同步（增加防抖，避免短时间内多次触发全量同步）
     static async triggerSync() {
-        console.log('🚀 触发同步...');
-        this.syncAll().catch(err => console.error('后台同步失败:', err));
+        if (this.syncTimeout) clearTimeout(this.syncTimeout);
+        this.syncTimeout = setTimeout(() => {
+            console.log('🚀 执行防抖快速同步 (优先业务数据)...');
+            this.syncAll(true).catch(err => console.error('后台同步失败:', err));
+        }, 1000); // 1秒防抖
     }
 
-    static async syncAll(): Promise<boolean> {
+    static async syncAll(priorityOnly = false): Promise<boolean> {
         if (this.isSyncing) return false;
         
-        // 设置一个 2 分钟的超时保护，防止 syncAll 永远不返回
+        // 设置一个 2 分钟的超时保护
         const timeoutPromise = new Promise<boolean>((_, reject) => {
             setTimeout(() => reject(new Error('Sync timeout')), 120000);
         });
@@ -98,7 +102,7 @@ export class SyncService {
         const syncPromise = (async () => {
             this.isSyncing = true;
             this.syncStatus = 'syncing';
-            console.log('🔄 开始全量同步...');
+            console.log(`🔄 开始${priorityOnly ? '快速' : '全量'}同步...`);
             let hasError = false;
             const results: Record<string, { success: boolean; error?: string }> = {};
             
@@ -112,10 +116,14 @@ export class SyncService {
                     ['products', COLLECTIONS.PRODUCTS],
                     ['customers', COLLECTIONS.CUSTOMERS],
                     ['orders', COLLECTIONS.ORDERS],
-                    ['logs', COLLECTIONS.LOGS],
                     ['stockMovements', COLLECTIONS.STOCK_MOVEMENTS],
                     ['repayments', COLLECTIONS.REPAYMENTS]
                 ];
+
+                // 如果不是仅同步优先级表，则加入日志
+                if (!priorityOnly) {
+                    tables.push(['logs', COLLECTIONS.LOGS]);
+                }
 
                 for (const [tableName, collectionId] of tables) {
                     try {
