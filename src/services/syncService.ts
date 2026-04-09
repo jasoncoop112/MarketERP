@@ -9,7 +9,7 @@ import { databases, DATABASE_ID, COLLECTIONS, storage, BUCKET_ID, account, clien
 import type { Product, Customer, Order, OperationLog, StockMovement } from '../types';
 
 export class SyncService {
-    private static isSyncing = false;
+    public static isSyncing = false;
     private static syncStatus: 'idle' | 'syncing' | 'error' = 'idle';
     private static sessionInitialized = false;
     private static lastSyncResults: Record<string, { success: boolean; error?: string }> = {};
@@ -89,64 +89,74 @@ export class SyncService {
 
     static async syncAll(): Promise<boolean> {
         if (this.isSyncing) return false;
-        this.isSyncing = true;
-        this.syncStatus = 'syncing';
-        console.log('🔄 开始全量同步...');
-        let hasError = false;
-        const results: Record<string, { success: boolean; error?: string }> = {};
         
-        try {
-            await this.initSession();
+        // 设置一个 2 分钟的超时保护，防止 syncAll 永远不返回
+        const timeoutPromise = new Promise<boolean>((_, reject) => {
+            setTimeout(() => reject(new Error('Sync timeout')), 120000);
+        });
 
-            // 1. 同步前先清理本地重复数据
-            await this.cleanupDuplicates();
+        const syncPromise = (async () => {
+            this.isSyncing = true;
+            this.syncStatus = 'syncing';
+            console.log('🔄 开始全量同步...');
+            let hasError = false;
+            const results: Record<string, { success: boolean; error?: string }> = {};
+            
+            try {
+                await this.initSession();
 
-            const tables: [string, string][] = [
-                ['products', COLLECTIONS.PRODUCTS],
-                ['customers', COLLECTIONS.CUSTOMERS],
-                ['orders', COLLECTIONS.ORDERS],
-                ['logs', COLLECTIONS.LOGS],
-                ['stockMovements', COLLECTIONS.STOCK_MOVEMENTS],
-                ['repayments', COLLECTIONS.REPAYMENTS]
-            ];
+                // 1. 同步前先清理本地重复数据
+                await this.cleanupDuplicates();
 
-            for (const [tableName, collectionId] of tables) {
-                try {
-                    console.log(`Syncing table: ${tableName}...`);
-                    await this.syncTable(tableName, collectionId);
-                    results[tableName] = { success: true };
-                } catch (tableError: any) {
-                    hasError = true;
-                    const errorMsg = tableError.message || String(tableError);
-                    results[tableName] = { success: false, error: errorMsg };
-                    console.error(`❌ [${tableName}] 同步失败:`, tableError);
+                const tables: [string, string][] = [
+                    ['products', COLLECTIONS.PRODUCTS],
+                    ['customers', COLLECTIONS.CUSTOMERS],
+                    ['orders', COLLECTIONS.ORDERS],
+                    ['logs', COLLECTIONS.LOGS],
+                    ['stockMovements', COLLECTIONS.STOCK_MOVEMENTS],
+                    ['repayments', COLLECTIONS.REPAYMENTS]
+                ];
+
+                for (const [tableName, collectionId] of tables) {
+                    try {
+                        console.log(`Syncing table: ${tableName}...`);
+                        await this.syncTable(tableName, collectionId);
+                        results[tableName] = { success: true };
+                    } catch (tableError: any) {
+                        hasError = true;
+                        const errorMsg = tableError.message || String(tableError);
+                        results[tableName] = { success: false, error: errorMsg };
+                        console.error(`❌ [${tableName}] 同步失败:`, tableError);
+                    }
                 }
-            }
-            
-            this.lastSyncResults = results;
-            this.syncStatus = hasError ? 'error' : 'idle';
-            
-            // 只要有关键表同步成功，就更新同步时间，避免因为日志等次要表失败导致一直显示“从未同步”
-            const criticalTables = ['products', 'customers', 'orders'];
-            const criticalSuccess = criticalTables.every(t => results[t]?.success);
+                
+                this.lastSyncResults = results;
+                this.syncStatus = hasError ? 'error' : 'idle';
+                
+                // 只要有关键表同步成功，就更新同步时间，避免因为日志等次要表失败导致一直显示“从未同步”
+                const criticalTables = ['products', 'customers', 'orders'];
+                const criticalSuccess = criticalTables.every(t => results[t]?.success);
 
-            if (criticalSuccess) {
-                await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
-                if (!hasError) {
-                    console.log('✅ 全量同步完成');
-                } else {
-                    console.warn('⚠️ 同步完成，但部分次要表存在错误');
+                if (criticalSuccess) {
+                    await db.syncStatus.put({ key: 'lastSync', lastSync: new Date().toISOString() });
+                    if (!hasError) {
+                        console.log('✅ 全量同步完成');
+                    } else {
+                        console.warn('⚠️ 同步完成，但部分次要表存在错误');
+                    }
                 }
+                
+                return !hasError;
+            } catch (error) {
+                console.error('❌ 同步服务异常:', error);
+                this.syncStatus = 'error';
+                return false;
+            } finally {
+                this.isSyncing = false;
             }
-            
-            return !hasError;
-        } catch (error) {
-            console.error('❌ 同步服务异常:', error);
-            this.syncStatus = 'error';
-            return false;
-        } finally {
-            this.isSyncing = false;
-        }
+        })();
+
+        return Promise.race([syncPromise, timeoutPromise]) as Promise<boolean>;
     }
 
     static async forcePushAll() {
@@ -349,10 +359,11 @@ export class SyncService {
         const isFullSync = lastPullTime === new Date(0).toISOString();
 
         // 1. 推送本地变更 (使用 sync_status 标记，不再依赖时间戳，彻底解决同步循环)
-        const localChanges = await table.where('sync_status').equals(1).toArray().catch(() => []);
+        // 增加容错：如果 sync_status 为空，也尝试同步（可能是旧数据）
+        const localChanges = await table.filter((item: any) => item.sync_status === 1 || item.sync_status === undefined).toArray().catch(() => []);
         
         if (localChanges.length > 0) {
-            console.log(`[Sync] Pushing ${localChanges.length} changes for ${tableName}`);
+            console.log(`[Sync] Found ${localChanges.length} unsynced items for ${tableName}`);
             for (const item of localChanges) {
                 try {
                     const { id, appwriteId, ...data } = item;
@@ -649,6 +660,7 @@ export class SyncService {
         delete data.id;
         delete data.appwriteId;
         delete data.sync_status;
+        delete data._isSync;
         
         // 强制转换数值，防止 Appwrite 报错
         const numericFields = [
