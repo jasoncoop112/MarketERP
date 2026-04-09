@@ -83,7 +83,7 @@ export class MyDatabase extends Dexie {
         obj.sync_status = 1;
       }
 
-      obj.updatedAt = new Date().toISOString();
+      obj.updatedAt = obj.updatedAt || new Date().toISOString();
       // Use 0/1 for isDeleted to ensure reliable indexing
       if (obj.isDeleted === undefined) obj.isDeleted = 0;
     };
