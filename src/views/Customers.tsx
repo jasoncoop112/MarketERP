@@ -67,14 +67,20 @@ export default function Customers() {
   const handleDelete = async (id: number) => {
     if (confirm('确定要删除该客户吗？')) {
       try {
-        await db.customers.update(id, { isDeleted: 1 });
-        await syncService.triggerSync();
+        await db.customers.update(id, { 
+          isDeleted: 1,
+          sync_status: 1,
+          updatedAt: new Date().toISOString()
+        });
+        
         await db.logs.add({
           user: '管理员',
           action: '删除客户',
           details: `删除了客户 ID: ${id}`,
+          sync_status: 1,
           createdAt: new Date().toISOString()
         });
+        await syncService.triggerSync();
       } catch (error) {
         console.error('Customer Delete Error:', error);
         alert('删除客户失败，请重试');
@@ -473,13 +479,16 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
       debt: newDebt, 
       totalSpent: newSpent,
       bucketsOut: newBucketsOut,
-      bucketsIn: newBucketsIn
+      bucketsIn: newBucketsIn,
+      sync_status: 1,
+      updatedAt: new Date().toISOString()
     });
 
     await db.logs.add({
       user: '管理员',
       action: '快速开单',
       details: `为客户 ${customer.name} 快速开单 ${orderNo}，金额 ¥${finalAmount}`,
+      sync_status: 1,
       createdAt: new Date().toISOString()
     });
 
@@ -768,18 +777,27 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
         ...formData, 
         pinyin: py,
         updatedAt: new Date().toISOString(),
-        isDeleted: formData.isDeleted || 0
+        isDeleted: formData.isDeleted || 0,
+        sync_status: 1
       } as Customer;
 
       if (customer?.id) {
         console.log('Updating existing customer:', customer.id);
         await db.customers.update(customer.id, data);
-        await syncService.triggerSync();
       } else {
         console.log('Adding new customer');
         await db.customers.add(data);
-        await syncService.triggerSync();
       }
+      
+      await db.logs.add({
+        user: '管理员',
+        action: customer ? '编辑客户' : '新增客户',
+        details: `${customer ? '编辑' : '新增'}了客户: ${data.name}`,
+        sync_status: 1,
+        createdAt: new Date().toISOString()
+      });
+      
+      await syncService.triggerSync();
       console.log('Customer save successful, closing modal');
       onClose();
     } catch (error) {
@@ -888,7 +906,9 @@ function DebtRepaymentModal({ customer, onClose }: { customer: Customer, onClose
       
       // 1. Update customer debt
       await db.customers.update(customer.id!, { 
-        debt: newDebt
+        debt: newDebt,
+        sync_status: 1,
+        updatedAt: new Date().toISOString()
       });
 
       // 2. Record repayment
@@ -897,6 +917,7 @@ function DebtRepaymentModal({ customer, onClose }: { customer: Customer, onClose
         customerName: customer.name,
         amount: amount,
         method: method,
+        sync_status: 1,
         createdAt: new Date().toISOString()
       });
 
@@ -905,6 +926,7 @@ function DebtRepaymentModal({ customer, onClose }: { customer: Customer, onClose
         user: '管理员',
         action: '收款销账',
         details: `客户 ${customer.name} 偿还欠款 ¥${amount} (${method})。剩余欠款: ¥${newDebt}`,
+        sync_status: 1,
         createdAt: new Date().toISOString()
       });
 
@@ -1030,13 +1052,19 @@ function CustomerStatementModal({ customer, onClose }: { customer: Customer, onC
     if (confirm(`确定要删除这条 ¥${repayment.amount} 的还款记录吗？删除后客户欠款将增加。`)) {
       try {
         // 1. Mark repayment as deleted
-        await db.repayments.update(repayment.id!, { isDeleted: 1 });
+        await db.repayments.update(repayment.id!, { 
+          isDeleted: 1,
+          sync_status: 1,
+          updatedAt: new Date().toISOString()
+        });
         
         // 2. Restore customer debt
         const currentCustomer = await db.customers.get(customer.id!);
         if (currentCustomer) {
           await db.customers.update(customer.id!, {
-            debt: (currentCustomer.debt || 0) + repayment.amount
+            debt: (currentCustomer.debt || 0) + repayment.amount,
+            sync_status: 1,
+            updatedAt: new Date().toISOString()
           });
         }
 
@@ -1045,6 +1073,7 @@ function CustomerStatementModal({ customer, onClose }: { customer: Customer, onC
           user: '管理员',
           action: '删除还款',
           details: `删除了客户 ${customer.name} 的还款记录 ID: ${repayment.id}，金额: ¥${repayment.amount}。欠款已恢复。`,
+          sync_status: 1,
           createdAt: new Date().toISOString()
         });
 

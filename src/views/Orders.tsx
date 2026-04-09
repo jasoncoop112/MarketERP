@@ -129,15 +129,18 @@ export default function Orders() {
         const now = new Date().toISOString();
         await db.orders.update(id, { 
           isDeleted: 1,
+          sync_status: 1,
           updatedAt: now
         });
-        await syncService.triggerSync();
+        
         await db.logs.add({
           user: '管理员',
           action: '删除订单',
           details: `删除了订单 ID: ${id}`,
+          sync_status: 1,
           createdAt: now
         });
+        await syncService.triggerSync();
       } catch (error) {
         console.error('Order Delete Error:', error);
         alert('删除订单失败，请重试');

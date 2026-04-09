@@ -282,7 +282,8 @@ export default function Sales() {
         status: paymentMethod === '欠款' ? '待支付' : '已支付',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        isDeleted: 0
+        isDeleted: 0,
+        sync_status: 1
       };
 
       // 1. Save Order
@@ -297,6 +298,7 @@ export default function Sales() {
           const newStock = product.stock - item.quantity;
           await db.products.update(item.productId, { 
             stock: newStock,
+            sync_status: 1,
             updatedAt: new Date().toISOString()
           });
           
@@ -310,6 +312,7 @@ export default function Sales() {
             currentStock: newStock,
             reason: `销售开单: ${orderNo}`,
             operator: '管理员',
+            sync_status: 1,
             createdAt: new Date().toISOString()
           });
         }
@@ -331,6 +334,7 @@ export default function Sales() {
           totalSpent: newSpent,
           bucketsOut: newBucketsOut,
           bucketsIn: newBucketsIn,
+          sync_status: 1,
           updatedAt: new Date().toISOString()
         });
       }
@@ -340,6 +344,7 @@ export default function Sales() {
         user: '管理员',
         action: '销售开单',
         details: `开具单据 ${orderNo}，金额 ¥${finalAmount}，客户: ${order.customerName}`,
+        sync_status: 1,
         createdAt: new Date().toISOString()
       });
 

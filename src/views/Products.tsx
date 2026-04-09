@@ -135,14 +135,20 @@ export default function Products({ userRole }: ProductsProps) {
   const handleDelete = async (id: number) => {
     if (confirm('确定要删除该商品吗？')) {
       try {
-        await db.products.update(id, { isDeleted: 1 });
-        await syncService.triggerSync();
+        await db.products.update(id, { 
+          isDeleted: 1,
+          sync_status: 1,
+          updatedAt: new Date().toISOString()
+        });
+        
         await db.logs.add({
           user: '管理员',
           action: '删除商品',
           details: `删除了商品 ID: ${id}`,
+          sync_status: 1,
           createdAt: new Date().toISOString()
         });
+        await syncService.triggerSync();
       } catch (error) {
         console.error('Product Delete Error:', error);
         alert('删除商品失败，请重试');
@@ -580,13 +586,13 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
         ...formData, 
         pinyin: py,
         updatedAt: new Date().toISOString(),
-        isDeleted: formData.isDeleted || 0
+        isDeleted: formData.isDeleted || 0,
+        sync_status: 1
       } as Product;
       
       if (product?.id) {
         console.log('Updating existing product:', product.id);
         await db.products.put({ ...data, id: product.id });
-        await syncService.triggerSync();
       } else {
         console.log('Adding new product');
         const id = await db.products.add(data);
@@ -601,19 +607,21 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
             currentStock: data.stock,
             reason: '初始库存',
             operator: '管理员',
+            sync_status: 1,
             createdAt: new Date().toISOString()
           });
         }
-        await syncService.triggerSync();
       }
       
       await db.logs.add({
         user: '管理员',
         action: product ? '编辑商品' : '新增商品',
         details: `${product ? '编辑' : '新增'}了商品: ${data.name}`,
+        sync_status: 1,
         createdAt: new Date().toISOString()
       });
       
+      await syncService.triggerSync();
       console.log('Product save successful, closing modal');
       onClose();
     } catch (error) {
