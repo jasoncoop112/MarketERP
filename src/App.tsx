@@ -250,7 +250,13 @@ export default function App() {
 
   // Auto-sync every 30 seconds
   useEffect(() => {
+    // 启动实时同步订阅
+    const unsubscribe = syncService.subscribeToRealtime();
+
     const doSync = async () => {
+      // 如果已经在同步中，不要重复触发，也不要修改 UI 状态
+      if (syncService.isSyncing) return;
+
       console.log('Auto-sync started...');
       setSyncStatus('syncing');
       try {
@@ -263,8 +269,11 @@ export default function App() {
     };
 
     doSync();
-    const interval = setInterval(doSync, 5000);
-    return () => clearInterval(interval);
+    const interval = setInterval(doSync, 30000);
+    return () => {
+      clearInterval(interval);
+      unsubscribe();
+    };
   }, []);
 
   // Listen for print events from Sales/Orders
