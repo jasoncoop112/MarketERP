@@ -220,8 +220,15 @@ export class SyncService {
                         }
                     }
 
+                    // 继承未同步状态
+                    if (toDelete.sync_status === 1) {
+                        toKeep.sync_status = 1;
+                        toKeep.updatedAt = new Date().toISOString();
+                    }
+
                     console.warn(`[Cleanup] Deleting duplicate ${name} (${key}): keeping ${toKeep.id}, deleting ${toDelete.id}`);
                     await table.delete(toDelete.id);
+                    await table.put(toKeep); // 保存继承的状态
                     seen.set(key, toKeep);
                 } else {
                     seen.set(key, item);
@@ -262,6 +269,7 @@ export class SyncService {
 
                     // --- 关键修复：将本地 ID 转换为 Appwrite ID ---
                     const preparedData = await this.mapLocalToAppwrite(tableName, data);
+                    console.log(`[Sync] Pushing payload for ${tableName}:${item.id}`, preparedData);
 
                     const pushToAppwrite = async (payload: any, retryCount = 0): Promise<any> => {
                         try {
@@ -305,6 +313,10 @@ export class SyncService {
 
                     const doc = await pushToAppwrite(preparedData);
                     
+                    if (preparedData.isDeleted === 1) {
+                        console.log(`[Sync] ✅ Successfully pushed deletion for ${tableName}: ${doc.$id} (isDeleted in response: ${doc.isDeleted})`);
+                    }
+
                     // 检查 isDeleted 是否成功保存到云端
                     if (preparedData.isDeleted === 1 && doc.isDeleted !== 1) {
                         console.error(`[Sync] ⚠️ 关键错误: isDeleted 标记未能在 Appwrite 中保存 (${tableName}:${doc.$id})。请检查 Appwrite 集合属性中是否存在 isDeleted (Integer) 字段。`);
@@ -340,6 +352,11 @@ export class SyncService {
                 ]);
 
                 if (response.documents.length === 0) break;
+
+                // 检查云端属性完整性
+                if (response.documents.length > 0 && response.documents[0].isDeleted === undefined) {
+                    console.error(`[Sync] ❌ 严重警告: 云端文档 (${tableName}) 缺失 isDeleted 属性。这会导致删除同步失效！请务必在 Appwrite 控制台中为该集合添加 isDeleted (Integer) 属性。`);
+                }
 
                 for (const doc of response.documents) {
                     // 记录最大的更新时间，用于下次同步
@@ -386,13 +403,19 @@ export class SyncService {
                         }
 
                         if (shouldOverwrite) {
-                            if (data.isDeleted === 1) console.log(`[Sync] Pulled deletion for ${tableName}: ${doc.$id}`);
+                            if (data.isDeleted === 1) {
+                                console.log(`[Sync] 🗑️ Pulled deletion for ${tableName}: ${doc.$id}`);
+                            } else if (localItem.isDeleted === 1) {
+                                console.warn(`[Sync] ⚠️ Pulled active state for previously deleted item ${tableName}: ${doc.$id}. Overwriting local deletion.`);
+                            }
                             await table.update(localItem.id, { 
                                 ...data, 
                                 appwriteId: doc.$id, 
                                 _isSync: true,
                                 sync_status: 0 
                             });
+                        } else if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
+                            console.log(`[Sync] 🛡️ Protected local deletion for ${tableName}: ${doc.$id} from older cloud state.`);
                         }
                     } else {
                         const { id: _, ...newData } = data;
