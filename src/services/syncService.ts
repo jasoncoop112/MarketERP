@@ -109,8 +109,8 @@ export class SyncService {
             try {
                 await this.initSession();
 
-                // 1. 同步前先清理本地重复数据
-                await this.cleanupDuplicates();
+                // 1. 同步前清理本地重复数据 (改为非阻塞，且仅在全量同步时执行)
+                // if (!priorityOnly) await this.cleanupDuplicates();
 
                 const tables: [string, string][] = [
                     ['products', COLLECTIONS.PRODUCTS],
@@ -244,18 +244,25 @@ export class SyncService {
                             localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
                         } else if (data.code) {
                             localItem = await table.where('code').equals(data.code.trim()).first();
-                        } else if (tableName === 'customers' && data.name) {
-                            localItem = await table.where('name').equals(data.name.trim()).first();
                         }
+                        // 注意：不再通过 name 匹配，防止同名不同人的数据被误覆盖
                     }
 
                     if (localItem) {
                         const serverTime = new Date(doc.$updatedAt).getTime();
                         const localTime = localItem.updatedAt ? new Date(localItem.updatedAt).getTime() : 0;
+                        const isDirty = localItem.sync_status === 1;
                         
-                        // 冲突解决：云端必须比本地新，或者是强制同步
+                        // 实时同步冲突解决：
+                        // 1. 如果本地有未同步变更 (isDirty)，绝对不覆盖，保护本地数据
+                        if (isDirty) {
+                            console.log(`[Realtime] 🛡️ 保护未同步的本地数据: ${tableName}:${localItem.id}`);
+                            return;
+                        }
+
+                        // 2. 云端必须比本地新
                         if (serverTime > localTime) {
-                            // 保护本地删除状态
+                            // 3. 保护本地删除状态
                             if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
                                 console.log(`[Realtime] 🛡️ 保护本地删除状态: ${tableName}:${doc.$id}`);
                                 return;
@@ -267,7 +274,7 @@ export class SyncService {
                                 _isSync: true,
                                 sync_status: 0
                             });
-                            console.log(`[Realtime] ✅ 已同步更新: ${tableName}:${doc.$id}`);
+                            console.log(`[Realtime] ✅ 已实时同步更新: ${tableName}:${doc.$id}`);
                         }
                     } else {
                         // 新增数据
@@ -292,12 +299,13 @@ export class SyncService {
     /**
      * 清理本地重复数据（基于业务主键：商品代码、客户姓名、订单号）
      */
-    private static async cleanupDuplicates() {
+    // 将清理重复数据改为公开方法，供手动调用
+    static async cleanupDuplicates() {
         console.log('🔍 正在检查并清理本地重复数据...');
         
         const tables = [
             { name: 'products', keyField: 'code' },
-            { name: 'customers', keyField: 'name' }
+            { name: 'customers', keyField: 'phone' } // 改为手机号，姓名重复率太高
         ];
 
         for (const { name, keyField } of tables) {
@@ -396,10 +404,11 @@ export class SyncService {
                             if (appwriteId) {
                                 return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
                             } else {
-                                // 尝试通过业务 ID 匹配云端，防止重复创建
+                                // 尝试通过业务唯一 ID 匹配云端，防止重复创建
+                                // 注意：不再通过 name 匹配，因为名称可能重复，且容易导致误覆盖
                                 let existingDocId = null;
-                                const searchField = payload.orderNo ? 'orderNo' : (payload.code ? 'code' : (payload.name ? 'name' : null));
-                                const searchValue = payload.orderNo || payload.code || payload.name;
+                                const searchField = payload.orderNo ? 'orderNo' : (payload.code ? 'code' : null);
+                                const searchValue = payload.orderNo || payload.code;
 
                                 if (searchField && searchValue) {
                                     try {
@@ -492,9 +501,8 @@ export class SyncService {
                             localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
                         } else if (data.code) {
                             localItem = await table.where('code').equals(data.code.trim()).first();
-                        } else if (tableName === 'customers' && data.name) {
-                            localItem = await table.where('name').equals(data.name.trim()).first();
                         }
+                        // 注意：不再通过 name 匹配，防止同名不同人的数据被误覆盖
                     }
 
                     if (localItem) {
@@ -503,25 +511,26 @@ export class SyncService {
                         const isDirty = localItem.sync_status === 1;
                         
                         // 核心冲突解决策略：
-                        // 1. 如果本地标记为已删除 (isDeleted: 1)，除非云端有更晚的更新，否则绝不恢复。
-                        // 2. 如果本地有未同步变更 (isDirty)，除非云端时间严格晚于本地，否则不覆盖。
-                        // 3. 如果本地已同步，且云端时间更晚，则更新本地。
+                        // 1. 如果本地有未同步变更 (isDirty)，绝对不覆盖，保护本地数据不消失
+                        // 2. 如果本地标记为已删除 (isDeleted: 1)，除非云端有更晚的更新，否则不恢复
+                        // 3. 只有当本地已同步，且云端时间更晚，才更新本地
                         
-                        let shouldOverwrite = isFullSync || !localItem.appwriteId;
+                        let shouldOverwrite = false;
                         
-                        if (!shouldOverwrite) {
-                            // 只有当云端数据确实比本地新时，才考虑覆盖
-                            if (serverTime > localTime) {
-                                shouldOverwrite = true;
-                            }
-                        }
-
-                        // 特殊保护：防止“已删除”状态被旧的云端数据（isDeleted: 0）覆盖
-                        // 核心原则：一旦本地标记为删除，除非云端有更晚的删除记录，否则绝不恢复为“未删除”
-                        if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
+                        if (isDirty) {
+                            // 本地有未同步修改，保护它，不从云端覆盖
                             shouldOverwrite = false;
-                            // 关键修复：如果本地已删除但云端没删，且云端数据较旧，
-                            // 必须确保本地标记为“待同步”，以便将删除状态推送到云端。
+                            console.log(`[Sync] 🛡️ Protecting unsynced local item ${tableName}:${localItem.id} from cloud overwrite`);
+                        } else if (isFullSync || !localItem.appwriteId) {
+                            shouldOverwrite = true;
+                        } else if (serverTime > localTime) {
+                            shouldOverwrite = true;
+                        }
+                        
+                        // 特殊保护：防止“已删除”状态被旧的云端数据（isDeleted: 0）覆盖
+                        if (shouldOverwrite && localItem.isDeleted === 1 && data.isDeleted !== 1) {
+                            shouldOverwrite = false;
+                            // 如果本地已删除但云端没删，确保本地标记为“待同步”
                             if (localItem.sync_status !== 1) {
                                 await table.update(localItem.id, { sync_status: 1, _isSync: true });
                             }
