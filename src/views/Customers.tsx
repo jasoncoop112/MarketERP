@@ -442,7 +442,10 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
       finalAmount,
       paymentMethod,
       status: paymentMethod === '欠款' ? '待支付' : '已支付',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isDeleted: 0,
+      sync_status: 1
     };
 
     await db.orders.add(order);
@@ -452,7 +455,9 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
       if (product) {
         const newStock = product.stock - item.quantity;
         await db.products.update(item.productId, { 
-          stock: newStock
+          stock: newStock,
+          sync_status: 1,
+          updatedAt: new Date().toISOString()
         });
         
         // Record stock movement
@@ -465,6 +470,7 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
           currentStock: newStock,
           reason: `快速开单: ${orderNo}`,
           operator: '管理员',
+          sync_status: 1,
           createdAt: new Date().toISOString()
         });
       }

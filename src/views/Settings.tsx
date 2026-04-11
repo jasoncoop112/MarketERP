@@ -23,7 +23,8 @@ import {
   Users,
   Cloud,
   RefreshCw,
-  CloudOff
+  CloudOff,
+  ShieldAlert
 } from 'lucide-react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
