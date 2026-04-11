@@ -437,14 +437,18 @@ export class SyncService {
                                 }
                             }
                         } catch (err: any) {
-                            const unknownAttrMatch = err.message?.match(/Unknown attribute: "([^"]+)"/);
+                            // 更加鲁棒的未知属性检测逻辑
+                            const errorMsg = err.message || '';
+                            const unknownAttrMatch = errorMsg.match(/Unknown attribute[:\s]+"([^"]+)"/i);
+                            
                             if (unknownAttrMatch && retryCount < 5) {
                                 const attrName = unknownAttrMatch[1];
+                                console.warn(`[Sync] 🛡️ 自动剔除云端不存在的字段: ${attrName} (${tableName})`);
                                 const newPayload = { ...payload };
                                 delete newPayload[attrName];
                                 return await pushToAppwrite(newPayload, retryCount + 1);
                             }
-                            console.error(`[Sync] Appwrite Push Error (${tableName}:${item.id}):`, err.message);
+                            console.error(`[Sync] Appwrite Push Error (${tableName}:${item.id}):`, errorMsg);
                             throw err;
                         }
                     };
@@ -591,18 +595,21 @@ export class SyncService {
     private static async mapLocalToAppwrite(tableName: string, data: any) {
         const payload = this.prepareForAppwrite(tableName, data);
 
-        // 转换 Order 的 customerId
-        if (tableName === 'orders' && payload.customerId) {
-            const customer = await db.customers.get(payload.customerId);
-            if (customer?.appwriteId) {
-                payload.customerAppwriteId = customer.appwriteId;
+        // 1. 转换 Order 的 customerId -> customerAppwriteId
+        if (tableName === 'orders') {
+            if (payload.customerId) {
+                const customer = await db.customers.get(payload.customerId);
+                if (customer?.appwriteId) {
+                    payload.customerAppwriteId = customer.appwriteId;
+                }
             }
+            delete payload.customerId;
         }
 
-        // 转换 OrderItems 的 productId
+        // 2. 转换 OrderItems 的 productId -> productAppwriteId
         if (tableName === 'orders' && payload.items) {
             try {
-                const items = JSON.parse(payload.items);
+                const items = typeof payload.items === 'string' ? JSON.parse(payload.items) : payload.items;
                 for (const item of items) {
                     if (item.productId) {
                         const product = await db.products.get(item.productId);
@@ -610,25 +617,32 @@ export class SyncService {
                             item.productAppwriteId = product.appwriteId;
                         }
                     }
+                    delete item.productId;
                 }
                 payload.items = JSON.stringify(items);
             } catch (e) {}
         }
 
-        // 转换 Repayment 的 customerId
-        if (tableName === 'repayments' && payload.customerId) {
-            const customer = await db.customers.get(payload.customerId);
-            if (customer?.appwriteId) {
-                payload.customerAppwriteId = customer.appwriteId;
+        // 3. 转换 Repayment 的 customerId -> customerAppwriteId
+        if (tableName === 'repayments') {
+            if (payload.customerId) {
+                const customer = await db.customers.get(payload.customerId);
+                if (customer?.appwriteId) {
+                    payload.customerAppwriteId = customer.appwriteId;
+                }
             }
+            delete payload.customerId;
         }
 
-        // 转换 StockMovement 的 productId
-        if (tableName === 'stockMovements' && payload.productId) {
-            const product = await db.products.get(payload.productId);
-            if (product?.appwriteId) {
-                payload.productAppwriteId = product.appwriteId;
+        // 4. 转换 StockMovement 的 productId -> productAppwriteId
+        if (tableName === 'stockMovements') {
+            if (payload.productId) {
+                const product = await db.products.get(payload.productId);
+                if (product?.appwriteId) {
+                    payload.productAppwriteId = product.appwriteId;
+                }
             }
+            delete payload.productId;
         }
 
         return payload;
@@ -690,6 +704,8 @@ export class SyncService {
         delete data.sync_status;
         delete data._isSync;
         delete data.pinyin; // 拼音字段通常不在云端 schema 中，本地生成即可
+        delete data.updatedAt; // 使用 Appwrite 自带的 $updatedAt
+        delete data.createdAt; // 使用 Appwrite 自带的 $createdAt
         
         // 确保没有 null 值，Appwrite 对 null 值校验较严
         Object.keys(data).forEach(key => {
