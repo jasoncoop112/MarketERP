@@ -244,6 +244,8 @@ export class SyncService {
                             localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
                         } else if (data.code) {
                             localItem = await table.where('code').equals(data.code.trim()).first();
+                        } else if (tableName === 'customers' && data.phone) {
+                            localItem = await table.where('phone').equals(data.phone.trim()).first();
                         }
                         // 注意：不再通过 name 匹配，防止同名不同人的数据被误覆盖
                     }
@@ -413,8 +415,8 @@ export class SyncService {
                                 // 尝试通过业务唯一 ID 匹配云端，防止重复创建
                                 // 注意：不再通过 name 匹配，因为名称可能重复，且容易导致误覆盖
                                 let existingDocId = null;
-                                const searchField = payload.orderNo ? 'orderNo' : (payload.code ? 'code' : null);
-                                const searchValue = payload.orderNo || payload.code;
+                                const searchField = payload.orderNo ? 'orderNo' : (payload.code ? 'code' : (tableName === 'customers' && payload.phone ? 'phone' : null));
+                                const searchValue = payload.orderNo || payload.code || (tableName === 'customers' ? payload.phone : null);
 
                                 if (searchField && searchValue) {
                                     try {
@@ -508,6 +510,8 @@ export class SyncService {
                             localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
                         } else if (data.code) {
                             localItem = await table.where('code').equals(data.code.trim()).first();
+                        } else if (tableName === 'customers' && data.phone) {
+                            localItem = await table.where('phone').equals(data.phone.trim()).first();
                         }
                         // 注意：不再通过 name 匹配，防止同名不同人的数据被误覆盖
                     }
