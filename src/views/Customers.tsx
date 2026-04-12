@@ -132,7 +132,7 @@ export default function Customers() {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex gap-2 transition-opacity">
                 <button 
                   onClick={() => { setSelectedCustomer(customer); setIsAddModalOpen(true); }}
                   className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
