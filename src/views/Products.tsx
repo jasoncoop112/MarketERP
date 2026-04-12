@@ -577,7 +577,7 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
       }
 
       // 增强拼音生成，处理数字和特殊字符
-      const py = pinyin(formData.name || '', { 
+      const py = pinyin((formData.name || '').trim(), { 
         pattern: 'initial', 
         toneType: 'none',
         nonZh: 'consecutive' 
@@ -585,6 +585,8 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
       
       const data = { 
         ...formData, 
+        name: (formData.name || '').trim(),
+        code: (formData.code || '').trim(),
         pinyin: py,
         updatedAt: new Date().toISOString(),
         isDeleted: formData.isDeleted || 0,
