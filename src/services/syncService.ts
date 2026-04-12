@@ -82,21 +82,27 @@ export class SyncService {
     }
 
     private static syncTimeout: any = null;
-    // 触发同步（增加防抖，避免短时间内多次触发全量同步）
+    // 触发同步（增加防抖，并限制触发频率）
+    private static lastTriggerTime = 0;
     static async triggerSync() {
+        const now = Date.now();
+        // 限制手动/自动触发的最小间隔为 10 秒，防止瞬间爆发请求
+        if (now - this.lastTriggerTime < 10000) return;
+        
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(() => {
-            console.log('🚀 执行防抖快速同步 (优先业务数据)...');
+            this.lastTriggerTime = Date.now();
+            console.log('🚀 执行防抖同步...');
             this.syncAll(true).catch(err => console.error('后台同步失败:', err));
-        }, 1000); // 1秒防抖
+        }, 2000); // 2秒防抖
     }
 
     static async syncAll(priorityOnly = false): Promise<boolean> {
         if (this.isSyncing) return false;
         
-        // 设置一个 2 分钟的超时保护
+        // 设置一个 1 分钟的超时保护 (缩短超时，节省资源)
         const timeoutPromise = new Promise<boolean>((_, reject) => {
-            setTimeout(() => reject(new Error('Sync timeout')), 120000);
+            setTimeout(() => reject(new Error('Sync timeout')), 60000);
         });
 
         const syncPromise = (async () => {
@@ -120,8 +126,8 @@ export class SyncService {
                     ['repayments', COLLECTIONS.REPAYMENTS]
                 ];
 
-                // 如果不是仅同步优先级表，则加入日志
-                if (!priorityOnly) {
+                // 如果不是仅同步优先级表，且随机概率极低，则加入日志 (节省额度)
+                if (!priorityOnly && Math.random() < 0.05) {
                     tables.push(['logs', COLLECTIONS.LOGS]);
                 }
 
@@ -201,7 +207,7 @@ export class SyncService {
             ['products', COLLECTIONS.PRODUCTS],
             ['customers', COLLECTIONS.CUSTOMERS],
             ['orders', COLLECTIONS.ORDERS],
-            ['logs', COLLECTIONS.LOGS],
+            // ['logs', COLLECTIONS.LOGS], // 禁用日志实时同步，节省额度
             ['stockMovements', COLLECTIONS.STOCK_MOVEMENTS],
             ['repayments', COLLECTIONS.REPAYMENTS]
         ];
@@ -437,10 +443,11 @@ export class SyncService {
                                 }
                             }
                         } catch (err: any) {
-                            // 更加鲁棒的未知属性检测逻辑
+                            // 更加鲁棒的错误检测逻辑
                             const errorMsg = err.message || '';
-                            const unknownAttrMatch = errorMsg.match(/Unknown attribute[:\s]+"([^"]+)"/i);
                             
+                            // 1. 未知属性检测
+                            const unknownAttrMatch = errorMsg.match(/Unknown attribute[:\s]+"([^"]+)"/i);
                             if (unknownAttrMatch && retryCount < 5) {
                                 const attrName = unknownAttrMatch[1];
                                 console.warn(`[Sync] 🛡️ 自动剔除云端不存在的字段: ${attrName} (${tableName})`);
@@ -448,6 +455,21 @@ export class SyncService {
                                 delete newPayload[attrName];
                                 return await pushToAppwrite(newPayload, retryCount + 1);
                             }
+
+                            // 2. 格式错误检测 (例如: Value must be a valid float)
+                            const invalidFormatMatch = errorMsg.match(/Attribute "([^"]+)" has invalid format/i);
+                            if (invalidFormatMatch && retryCount < 5) {
+                                const attrName = invalidFormatMatch[1];
+                                console.warn(`[Sync] 🛠️ 尝试修复字段格式: ${attrName} (${tableName})`);
+                                const newPayload = { ...payload };
+                                if (errorMsg.toLowerCase().includes('float') || errorMsg.toLowerCase().includes('integer') || errorMsg.toLowerCase().includes('number')) {
+                                    newPayload[attrName] = Number(newPayload[attrName]) || 0;
+                                } else {
+                                    delete newPayload[attrName];
+                                }
+                                return await pushToAppwrite(newPayload, retryCount + 1);
+                            }
+
                             console.error(`[Sync] Appwrite Push Error (${tableName}:${item.id}):`, errorMsg);
                             throw err;
                         }
@@ -707,6 +729,11 @@ export class SyncService {
         delete data.updatedAt; // 使用 Appwrite 自带的 $updatedAt
         delete data.createdAt; // 使用 Appwrite 自带的 $createdAt
         
+        // 删除所有以 $ 开头的 Appwrite 系统字段，防止 400 错误
+        Object.keys(data).forEach(key => {
+            if (key.startsWith('$')) delete data[key];
+        });
+
         // 确保没有 null 值，Appwrite 对 null 值校验较严
         Object.keys(data).forEach(key => {
             if (data[key] === null || data[key] === undefined) {
@@ -716,7 +743,7 @@ export class SyncService {
                     'stock', 'minStock', 'debt', 'totalSpent', 'amount', 'quantity', 
                     'totalAmount', 'discount', 'finalAmount', 'bucketsOut', 'bucketsIn', 'depositAmount',
                     'receivedAmount', 'previousStock', 'currentStock', 'searchCount',
-                    'isDeleted'
+                    'isDeleted', 'balance'
                 ];
                 if (numericFields.includes(key)) {
                     data[key] = 0;
@@ -732,7 +759,7 @@ export class SyncService {
             'stock', 'minStock', 'debt', 'totalSpent', 'amount', 'quantity', 
             'totalAmount', 'discount', 'finalAmount', 'bucketsOut', 'bucketsIn', 'depositAmount',
             'receivedAmount', 'previousStock', 'currentStock', 'searchCount',
-            'isDeleted'
+            'isDeleted', 'balance'
         ];
         numericFields.forEach(f => {
             if (data[f] !== undefined && data[f] !== null) {
