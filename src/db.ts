@@ -60,6 +60,7 @@ export class MyDatabase extends Dexie {
 
     // Auto-set updatedAt and sync_status on any change
     const setUpdatedAt = (mods: any, primKey: any, obj: any) => {
+      console.log(`[DB Hook] Updating ${primKey} in some table`, mods);
       // If _isSync is present, it means the update is from the sync service
       if (mods._isSync) {
         delete mods._isSync;
@@ -73,9 +74,11 @@ export class MyDatabase extends Dexie {
       // Local change: mark as dirty (1) and update timestamp
       mods.sync_status = 1;
       mods.updatedAt = new Date().toISOString();
+      console.log(`[DB Hook] Set sync_status=1 for local update`);
     };
 
     const setCreatedAt = (primKey: any, obj: any) => {
+      console.log(`[DB Hook] Creating new item`, obj);
       if (obj._isSync) {
         delete obj._isSync;
         if (obj.sync_status === undefined) obj.sync_status = 0;
@@ -86,6 +89,7 @@ export class MyDatabase extends Dexie {
       obj.updatedAt = obj.updatedAt || new Date().toISOString();
       // Use 0/1 for isDeleted to ensure reliable indexing
       if (obj.isDeleted === undefined) obj.isDeleted = 0;
+      console.log(`[DB Hook] Set sync_status=${obj.sync_status} for new item`);
     };
 
     ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments', 'searchHistory'].forEach(table => {

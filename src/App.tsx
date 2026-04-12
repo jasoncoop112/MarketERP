@@ -248,6 +248,18 @@ export default function App() {
     return format(new Date(lastSyncInfo.lastSync), 'HH:mm:ss');
   }, [lastSyncInfo]);
 
+  const syncErrorMessage = useMemo(() => {
+    if (syncStatus !== 'error') return null;
+    const msg = syncService.getLastErrorMessage();
+    if (!msg) return '同步失败，请检查网络';
+    
+    // 专门处理额度超限
+    if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('quota') || msg.includes('429')) {
+      return 'API 额度已用完，请明天再试';
+    }
+    return msg;
+  }, [syncStatus]);
+
   // Auto-sync every 5 minutes (reduced frequency to save quota)
   useEffect(() => {
     // 启动实时同步订阅
@@ -391,6 +403,7 @@ export default function App() {
           <div className="flex items-center gap-6">
             <button 
               onClick={() => syncService.triggerSync(true)}
+              title={syncErrorMessage || ''}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
               syncStatus === 'syncing' ? 'animate-pulse' : ''
             }`}
@@ -403,7 +416,7 @@ export default function App() {
                syncStatus === 'error' ? <CloudOff size={14} /> : <Cloud size={14} />}
               <div className="flex flex-col items-start leading-none">
                 <span>{syncStatus === 'syncing' ? '正在同步云端...' : 
-                       syncStatus === 'error' ? '同步失败 (点击重试)' : '云端已同步'}</span>
+                       syncStatus === 'error' ? (syncErrorMessage?.includes('额度') ? '额度已用完' : '同步失败') : '云端已同步'}</span>
                 <span className="text-[9px] opacity-70 mt-0.5">上次同步: {lastSyncTimeStr}</span>
               </div>
             </button>
