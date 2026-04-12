@@ -84,25 +84,28 @@ export class SyncService {
     private static syncTimeout: any = null;
     // 触发同步（增加防抖，并限制触发频率）
     private static lastTriggerTime = 0;
-    static async triggerSync() {
+    static async triggerSync(force = false) {
         const now = Date.now();
-        // 限制手动/自动触发的最小间隔为 10 秒，防止瞬间爆发请求
-        if (now - this.lastTriggerTime < 10000) return;
+        // 限制自动触发的最小间隔为 1 秒，手动触发 (force=true) 不受限
+        if (!force && now - this.lastTriggerTime < 1000) return;
         
         if (this.syncTimeout) clearTimeout(this.syncTimeout);
         this.syncTimeout = setTimeout(() => {
             this.lastTriggerTime = Date.now();
-            console.log('🚀 执行防抖同步...');
+            console.log('🚀 执行同步触发...');
             this.syncAll(true).catch(err => console.error('后台同步失败:', err));
-        }, 2000); // 2秒防抖
+        }, 500); // 0.5秒防抖
     }
 
     static async syncAll(priorityOnly = false): Promise<boolean> {
-        if (this.isSyncing) return false;
+        if (this.isSyncing) {
+            console.warn('⚠️ 同步正在进行中，请稍后再试');
+            return false;
+        }
         
-        // 设置一个 1 分钟的超时保护 (缩短超时，节省资源)
+        // 设置一个 5 分钟的超时保护，全量同步可能需要较长时间
         const timeoutPromise = new Promise<boolean>((_, reject) => {
-            setTimeout(() => reject(new Error('Sync timeout')), 60000);
+            setTimeout(() => reject(new Error('Sync timeout')), 300000);
         });
 
         const syncPromise = (async () => {
@@ -174,15 +177,20 @@ export class SyncService {
     }
 
     static async forcePushAll() {
+        if (this.isSyncing) {
+            alert('同步正在进行中，请等待当前同步完成后再试');
+            return false;
+        }
         console.log('🚀 强制重新推送所有本地数据...');
         const tables = ['products', 'customers', 'orders', 'logs', 'stockMovements', 'repayments'];
         for (const tableName of tables) {
             const table = (db as any)[tableName];
             if (table) {
+                console.log(`[ForcePush] Marking ${tableName} for sync...`);
                 await table.toCollection().modify({ sync_status: 1 });
             }
         }
-        return this.syncAll();
+        return this.syncAll(false); // 执行全量同步
     }
 
     static async resetSync() {
@@ -207,12 +215,12 @@ export class SyncService {
             ['products', COLLECTIONS.PRODUCTS],
             ['customers', COLLECTIONS.CUSTOMERS],
             ['orders', COLLECTIONS.ORDERS],
-            // ['logs', COLLECTIONS.LOGS], // 禁用日志实时同步，节省额度
             ['stockMovements', COLLECTIONS.STOCK_MOVEMENTS],
             ['repayments', COLLECTIONS.REPAYMENTS]
         ];
 
         const channels = tables.map(([_, collId]) => `databases.${DATABASE_ID}.collections.${collId}.documents`);
+        console.log('[Realtime] 📡 订阅频道:', channels);
 
         return client.subscribe(channels, async (response) => {
             const { events, payload } = response;
@@ -382,9 +390,21 @@ export class SyncService {
         const lastPullTime = lastPullState?.lastSync || new Date(0).toISOString();
         const isFullSync = lastPullTime === new Date(0).toISOString();
 
-        // 1. 推送本地变更 (使用 sync_status 标记，不再依赖时间戳，彻底解决同步循环)
-        // 增加容错：如果 sync_status 为空，也尝试同步（可能是旧数据）
-        const localChanges = await table.filter((item: any) => item.sync_status === 1 || item.sync_status === undefined).toArray().catch(() => []);
+        // 1. 推送本地变更 (使用 sync_status 索引查询，大幅提升性能)
+        let localChanges: any[] = [];
+        try {
+            // 优先查询标记为 1 (待同步) 的数据
+            localChanges = await table.where('sync_status').equals(1).toArray();
+            
+            // 兼容性处理：查询没有 sync_status 的旧数据
+            const legacyChanges = await table.filter((item: any) => item.sync_status === undefined || item.sync_status === null).toArray();
+            if (legacyChanges.length > 0) {
+                localChanges = [...localChanges, ...legacyChanges];
+            }
+        } catch (err) {
+            console.error(`[Sync] 查询本地变更失败 (${tableName}):`, err);
+            localChanges = [];
+        }
         
         if (localChanges.length > 0) {
             console.log(`[Sync] Found ${localChanges.length} unsynced items for ${tableName}`);
