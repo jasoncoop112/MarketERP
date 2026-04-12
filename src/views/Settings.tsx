@@ -360,27 +360,50 @@ export default function SettingsView({ userRole }: SettingsProps) {
 
               {/* 强制推送按钮 */}
               <div className="w-full pt-2 border-t border-slate-100 space-y-2">
-                <button 
-                  onClick={async () => {
-                    if (confirm('确定要强制重新推送所有本地数据到云端吗？这通常用于解决同步不一致的问题。')) {
-                      setIsSyncing(true);
-                      try {
-                        const success = await syncService.forcePushAll();
-                        if (success) alert('强制推送成功！');
-                        else alert('部分数据推送失败，请检查连接验证。');
-                      } catch (e: any) {
-                        alert('强制推送失败: ' + e.message);
-                      } finally {
-                        setIsSyncing(false);
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <button 
+                    onClick={async () => {
+                      if (confirm('确定要强制重新推送所有本地数据到云端吗？这通常用于解决同步不一致的问题。')) {
+                        setIsSyncing(true);
+                        try {
+                          const success = await syncService.forcePushAll();
+                          if (success) alert('强制推送成功！');
+                          else alert('部分数据推送失败，请检查连接验证。');
+                        } catch (e: any) {
+                          alert('强制推送失败: ' + e.message);
+                        } finally {
+                          setIsSyncing(false);
+                        }
                       }
-                    }
-                  }}
-                  disabled={isSyncing}
-                  className="w-full py-2 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-all flex items-center justify-center gap-2"
-                >
-                  <Upload size={14} />
-                  <span>强制重新推送所有本地数据</span>
-                </button>
+                    }}
+                    disabled={isSyncing}
+                    className="py-2 text-xs font-bold text-slate-400 hover:text-indigo-600 transition-all flex items-center justify-center gap-2 bg-slate-50 rounded-lg"
+                  >
+                    <Upload size={14} />
+                    <span>强制推送本地到云端</span>
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (confirm('⚠️ 警告：这将清空本地所有数据，并从云端重新拉取最新数据覆盖本地！确定要继续吗？')) {
+                        setIsSyncing(true);
+                        try {
+                          await syncService.forcePullFromCloud();
+                          alert('强制拉取成功，本地数据已更新！');
+                          window.location.reload();
+                        } catch (e: any) {
+                          alert('强制拉取失败: ' + e.message);
+                        } finally {
+                          setIsSyncing(false);
+                        }
+                      }
+                    }}
+                    disabled={isSyncing}
+                    className="py-2 text-xs font-bold text-slate-400 hover:text-rose-600 transition-all flex items-center justify-center gap-2 bg-slate-50 rounded-lg"
+                  >
+                    <Download size={14} />
+                    <span>强制从云端拉取覆盖本地</span>
+                  </button>
+                </div>
                 <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
                   <p className="text-[10px] text-amber-700 leading-relaxed">
                     <span className="font-bold">💡 提示：</span> 如果您发现同步失效且出现 400 错误，可能是因为云端数据结构不匹配。您可以尝试使用右侧的“彻底重置”来清空云端，然后重新输入数据。这也会节省您的 API 额度。

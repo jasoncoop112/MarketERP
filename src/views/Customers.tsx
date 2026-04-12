@@ -44,7 +44,8 @@ import { pinyin } from 'pinyin-pro';
 
 export default function Customers() {
   const customers = useLiveQuery(async () => {
-    return await db.customers.where('isDeleted').notEqual(1).toArray();
+    const all = await db.customers.toArray();
+    return all.filter(c => c.isDeleted !== 1);
   }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);

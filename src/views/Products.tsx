@@ -43,7 +43,8 @@ interface ProductsProps {
 
 export default function Products({ userRole }: ProductsProps) {
   const products = useLiveQuery(async () => {
-    return await db.products.where('isDeleted').notEqual(1).toArray();
+    const all = await db.products.toArray();
+    return all.filter(p => p.isDeleted !== 1);
   }) || [];
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('全部');
