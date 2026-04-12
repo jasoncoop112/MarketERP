@@ -207,6 +207,35 @@ export default function SettingsView({ userRole }: SettingsProps) {
     }
   };
 
+  const handleNuclearReset = async () => {
+    if (confirm('🚨 极其危险操作：这将同时清空【本地】和【云端】的所有数据！\n\n这通常用于系统彻底重置。确定要执行这个“核弹级”重置吗？')) {
+      if (confirm('请再次确认：云端数据一旦删除将无法找回！')) {
+        setIsSyncing(true);
+        try {
+          // 1. 清空云端
+          await syncService.dangerouslyClearCloudData();
+          // 2. 清空本地
+          await Promise.all([
+            db.products.clear(),
+            db.customers.clear(),
+            db.orders.clear(),
+            db.logs.clear(),
+            db.stockMovements.clear(),
+            db.repayments.clear(),
+            db.searchHistory.clear(),
+            db.syncStatus.clear()
+          ]);
+          alert('系统已彻底重置（本地与云端数据已清空）。页面将重新加载。');
+          window.location.reload();
+        } catch (error: any) {
+          alert('重置失败: ' + error.message);
+        } finally {
+          setIsSyncing(false);
+        }
+      }
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -330,7 +359,7 @@ export default function SettingsView({ userRole }: SettingsProps) {
               </div>
 
               {/* 强制推送按钮 */}
-              <div className="w-full pt-2 border-t border-slate-100">
+              <div className="w-full pt-2 border-t border-slate-100 space-y-2">
                 <button 
                   onClick={async () => {
                     if (confirm('确定要强制重新推送所有本地数据到云端吗？这通常用于解决同步不一致的问题。')) {
@@ -352,6 +381,11 @@ export default function SettingsView({ userRole }: SettingsProps) {
                   <Upload size={14} />
                   <span>强制重新推送所有本地数据</span>
                 </button>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                  <p className="text-[10px] text-amber-700 leading-relaxed">
+                    <span className="font-bold">💡 提示：</span> 如果您发现同步失效且出现 400 错误，可能是因为云端数据结构不匹配。您可以尝试使用右侧的“彻底重置”来清空云端，然后重新输入数据。这也会节省您的 API 额度。
+                  </p>
+                </div>
               </div>
 
               {/* 同步错误详情 */}
@@ -533,7 +567,14 @@ export default function SettingsView({ userRole }: SettingsProps) {
               className="text-xs font-bold text-rose-400 hover:text-rose-600 transition-colors uppercase tracking-widest flex items-center gap-1"
             >
               <Trash2 size={12} />
-              重置系统 (清空数据)
+              重置系统 (清空本地)
+            </button>
+            <button 
+              onClick={handleNuclearReset}
+              className="text-xs font-bold text-rose-600 hover:text-rose-800 transition-colors uppercase tracking-widest flex items-center gap-1 bg-rose-50 px-2 py-1 rounded"
+            >
+              <ShieldAlert size={12} />
+              彻底重置 (清空本地+云端)
             </button>
           </div>
 
