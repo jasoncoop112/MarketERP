@@ -272,7 +272,7 @@ export default function App() {
     };
 
     doSync();
-    const interval = setInterval(doSync, 600000); // 10 minutes
+    const interval = setInterval(doSync, 300000); // 5 minutes
     return () => {
       clearInterval(interval);
       unsubscribe();
@@ -390,7 +390,7 @@ export default function App() {
 
           <div className="flex items-center gap-6">
             <button 
-              onClick={() => syncService.triggerSync()}
+              onClick={() => syncService.triggerSync(true)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold transition-all hover:scale-105 active:scale-95 ${
               syncStatus === 'syncing' ? 'animate-pulse' : ''
             }`}
