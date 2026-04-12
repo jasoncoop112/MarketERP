@@ -248,7 +248,7 @@ export default function App() {
     return format(new Date(lastSyncInfo.lastSync), 'HH:mm:ss');
   }, [lastSyncInfo]);
 
-  // Auto-sync every 30 seconds
+  // Auto-sync every 5 minutes (reduced frequency to save quota)
   useEffect(() => {
     // 启动实时同步订阅
     const unsubscribe = syncService.subscribeToRealtime();
@@ -256,6 +256,9 @@ export default function App() {
     const doSync = async () => {
       // 如果已经在同步中，不要重复触发，也不要修改 UI 状态
       if (syncService.isSyncing) return;
+
+      // 仅在网络在线时执行
+      if (!navigator.onLine) return;
 
       console.log('Auto-sync started...');
       setSyncStatus('syncing');
@@ -269,7 +272,7 @@ export default function App() {
     };
 
     doSync();
-    const interval = setInterval(doSync, 30000);
+    const interval = setInterval(doSync, 600000); // 10 minutes
     return () => {
       clearInterval(interval);
       unsubscribe();
