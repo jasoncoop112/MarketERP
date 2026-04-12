@@ -850,6 +850,7 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
   const handleSave = async () => {
     await db.products.update(product.id!, {
       ...prices,
+      sync_status: 1,
       updatedAt: new Date().toISOString()
     });
     await syncService.triggerSync();
@@ -857,6 +858,7 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
       user: '管理员',
       action: '快速调价',
       details: `修改了商品 ${product.name} 的价格档位`,
+      sync_status: 1,
       createdAt: new Date().toISOString()
     });
     onClose();
@@ -969,7 +971,11 @@ function StockAdjustmentModal({ product, onClose }: { product: Product, onClose:
       return;
     }
     
-    await db.products.update(product.id!, { stock: newStock });
+    await db.products.update(product.id!, { 
+      stock: newStock,
+      sync_status: 1,
+      updatedAt: new Date().toISOString()
+    });
     
     // Record stock movement
     await db.stockMovements.add({
@@ -981,6 +987,7 @@ function StockAdjustmentModal({ product, onClose }: { product: Product, onClose:
       currentStock: newStock,
       reason: reason || (type === 'in' ? '手动入库' : '手动出库'),
       operator: '管理员',
+      sync_status: 1,
       createdAt: new Date().toISOString()
     });
 
@@ -988,6 +995,7 @@ function StockAdjustmentModal({ product, onClose }: { product: Product, onClose:
       user: '管理员',
       action: type === 'in' ? '入库' : '出库',
       details: `${product.name} ${type === 'in' ? '入库' : '出库'} ${amount} ${product.unit}。备注: ${reason}`,
+      sync_status: 1,
       createdAt: new Date().toISOString()
     });
     
