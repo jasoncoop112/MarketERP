@@ -207,6 +207,32 @@ export class SyncService {
         return this.syncAll(false); // 执行全量同步
     }
 
+    static async forcePullFromCloud() {
+        if (this.isSyncing) throw new Error('同步正在进行中，请稍后再试');
+        this.isSyncing = true;
+        try {
+            console.log('[Sync] 正在执行强制云端拉取（覆盖本地）...');
+            
+            // 1. 清空本地关键表
+            const tables = ['products', 'customers', 'orders', 'stockMovements', 'repayments'];
+            for (const tableName of tables) {
+                await (db as any)[tableName].clear();
+                // 重置拉取时间戳
+                await db.syncStatus.delete(`lastPull_${tableName}`);
+            }
+            
+            // 2. 执行全量同步
+            await this.syncAll();
+            console.log('[Sync] 强制云端拉取完成');
+            return true;
+        } catch (error) {
+            console.error('[Sync] 强制拉取失败:', error);
+            throw error;
+        } finally {
+            this.isSyncing = false;
+        }
+    }
+
     static async resetSync() {
         console.log('🧹 重置同步状态...');
         await db.syncStatus.clear();
