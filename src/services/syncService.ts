@@ -184,6 +184,8 @@ export class SyncService {
                 return false;
             } finally {
                 this.isSyncing = false;
+                // 每次同步完成后清理重复
+                await SyncService.cleanupDuplicates();
             }
         })();
 
@@ -223,6 +225,8 @@ export class SyncService {
             
             // 2. 执行全量同步
             await this.syncAll();
+            // 3. 再次清理可能产生的重复
+            await this.cleanupDuplicates();
             console.log('[Sync] 强制云端拉取完成');
             return true;
         } catch (error) {
@@ -360,62 +364,60 @@ export class SyncService {
         console.log('🔍 正在检查并清理本地重复数据...');
         
         const tables = [
-            { name: 'products', keyField: 'code' },
-            { name: 'customers', keyField: 'phone' } // 改为手机号，姓名重复率太高
+            { name: 'products', keyFields: ['code', 'name'] },
+            { name: 'customers', keyFields: ['phone', 'name'] }
         ];
 
-        for (const { name, keyField } of tables) {
+        for (const { name, keyFields } of tables) {
             const table = (db as any)[name];
             const items = await table.toArray();
-            const seen = new Map<string, any>();
+            
+            // 按照优先级排序，确保我们保留最好的那个
+            const sortedItems = [...items].sort((a, b) => {
+                const score = (obj: any) => {
+                    let s = 0;
+                    if (obj.appwriteId) s += 1000;
+                    if (obj.isDeleted !== 1) s += 500;
+                    return s;
+                };
+                const scoreA = score(a);
+                const scoreB = score(b);
+                if (scoreA !== scoreB) return scoreB - scoreA;
+                return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
+            });
 
-            for (const item of items) {
-                const val = item[keyField];
-                if (!val) continue;
-                const key = String(val).trim().toLowerCase();
+            const seen = new Set<string>();
+            const toDeleteIds: number[] = [];
 
-                if (seen.has(key)) {
-                    const existing = seen.get(key);
-                    // 优先级：有 appwriteId > 已删除标记 > 更新时间晚 > ID 小
-                    let toKeep = existing;
-                    let toDelete = item;
-
-                    const existingTime = new Date(existing.updatedAt || 0).getTime();
-                    const itemTime = new Date(item.updatedAt || 0).getTime();
-
-                    const score = (obj: any) => {
-                        let s = 0;
-                        if (obj.appwriteId) s += 1000;
-                        if (obj.isDeleted === 1) s += 500;
-                        return s;
-                    };
-
-                    const existingScore = score(existing);
-                    const itemScore = score(item);
-
-                    if (itemScore > existingScore) {
-                        toKeep = item;
-                        toDelete = existing;
-                    } else if (itemScore === existingScore) {
-                        if (itemTime > existingTime) {
-                            toKeep = item;
-                            toDelete = existing;
+            for (const item of sortedItems) {
+                let isDuplicate = false;
+                for (const field of keyFields) {
+                    const val = item[field];
+                    if (val) {
+                        const key = `${field}:${String(val).trim().toLowerCase()}`;
+                        if (seen.has(key)) {
+                            isDuplicate = true;
+                            break;
                         }
                     }
-
-                    // 继承未同步状态
-                    if (toDelete.sync_status === 1) {
-                        toKeep.sync_status = 1;
-                        toKeep.updatedAt = new Date().toISOString();
-                    }
-
-                    console.warn(`[Cleanup] Deleting duplicate ${name} (${key}): keeping ${toKeep.id}, deleting ${toDelete.id}`);
-                    await table.delete(toDelete.id);
-                    await table.put(toKeep); // 保存继承的状态
-                    seen.set(key, toKeep);
-                } else {
-                    seen.set(key, item);
                 }
+
+                if (isDuplicate) {
+                    toDeleteIds.push(item.id!);
+                } else {
+                    // 标记所有字段为已见
+                    for (const field of keyFields) {
+                        const val = item[field];
+                        if (val) {
+                            seen.add(`${field}:${String(val).trim().toLowerCase()}`);
+                        }
+                    }
+                }
+            }
+
+            if (toDeleteIds.length > 0) {
+                console.warn(`[Cleanup] Found ${toDeleteIds.length} duplicates in ${name}, deleting...`);
+                await table.bulkDelete(toDeleteIds);
             }
         }
         console.log('✅ 本地重复数据清理完成');
@@ -682,12 +684,16 @@ export class SyncService {
                     let localItem = await table.where('appwriteId').equals(doc.$id).first();
                     
                     if (!localItem) {
+                        const allLocal = await table.toArray();
                         if (data.orderNo) {
-                            localItem = await table.where('orderNo').equals(data.orderNo.trim()).first();
+                            const target = data.orderNo.trim().toLowerCase();
+                            localItem = allLocal.find((item: any) => item.orderNo && item.orderNo.trim().toLowerCase() === target);
                         } else if (data.code) {
-                            localItem = await table.where('code').equals(data.code.trim()).first();
+                            const target = data.code.trim().toLowerCase();
+                            localItem = allLocal.find((item: any) => item.code && item.code.trim().toLowerCase() === target);
                         } else if (tableName === 'customers' && data.phone) {
-                            localItem = await table.where('phone').equals(data.phone.trim()).first();
+                            const target = data.phone.trim().toLowerCase();
+                            localItem = allLocal.find((item: any) => item.phone && item.phone.trim().toLowerCase() === target);
                         }
                         // 注意：不再通过 name 匹配，防止同名不同人的数据被误覆盖
                     }
