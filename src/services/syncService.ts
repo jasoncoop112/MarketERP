@@ -278,10 +278,10 @@ export class SyncService {
 
                         // 2. 云端必须比本地新
                         if (serverTime > localTime) {
-                            // 3. 保护本地删除状态
+                            // 3. 冲突解决：如果云端是“未删除”状态，而本地是“已删除”状态
                             if (localItem.isDeleted === 1 && data.isDeleted !== 1) {
-                                console.log(`[Realtime] 🛡️ 保护本地删除状态: ${tableName}:${doc.$id}`);
-                                return;
+                                // 如果云端更新时间明显晚于本地，说明是在其他设备恢复了数据，本地也应同步
+                                console.log(`[Realtime] ♻️ 云端已恢复/更新数据，同步本地状态: ${tableName}:${doc.$id}`);
                             }
 
                             await table.update(localItem.id, {
@@ -379,6 +379,48 @@ export class SyncService {
             }
         }
         console.log('✅ 本地重复数据清理完成');
+    }
+
+    /**
+     * 危险操作：彻底清空云端所有数据
+     * 仅用于系统重置或数据迁移
+     */
+    static async dangerouslyClearCloudData() {
+        if (this.isSyncing) throw new Error('同步正在进行中，请稍后再试');
+        this.isSyncing = true;
+        
+        try {
+            const tables = [
+                { name: 'products', collId: COLLECTIONS.PRODUCTS },
+                { name: 'customers', collId: COLLECTIONS.CUSTOMERS },
+                { name: 'orders', collId: COLLECTIONS.ORDERS },
+                { name: 'logs', collId: COLLECTIONS.LOGS },
+                { name: 'stockMovements', collId: COLLECTIONS.STOCK_MOVEMENTS },
+                { name: 'repayments', collId: COLLECTIONS.REPAYMENTS }
+            ];
+
+            for (const { name, collId } of tables) {
+                console.log(`[Reset] 正在清空云端集合: ${name}...`);
+                let hasMore = true;
+                while (hasMore) {
+                    const response = await databases.listDocuments(DATABASE_ID, collId, [Query.limit(100)]);
+                    if (response.documents.length === 0) {
+                        hasMore = false;
+                    } else {
+                        for (const doc of response.documents) {
+                            await databases.deleteDocument(DATABASE_ID, collId, doc.$id);
+                        }
+                    }
+                }
+            }
+            console.log('✅ 云端数据已彻底清空');
+            return true;
+        } catch (error) {
+            console.error('清空云端数据失败:', error);
+            throw error;
+        } finally {
+            this.isSyncing = false;
+        }
     }
 
     private static async syncTable(tableName: string, collectionId: string) {
@@ -496,6 +538,7 @@ export class SyncService {
                     };
 
                     const doc = await pushToAppwrite(preparedData);
+                    console.log(`[Sync] ✅ Successfully pushed ${tableName}:${item.id} -> Appwrite:${doc.$id}`);
                     
                     if (preparedData.isDeleted === 1) {
                         console.log(`[Sync] ✅ Successfully pushed deletion for ${tableName}: ${doc.$id} (isDeleted in response: ${doc.isDeleted})`);
@@ -586,10 +629,15 @@ export class SyncService {
                         
                         // 特殊保护：防止“已删除”状态被旧的云端数据（isDeleted: 0）覆盖
                         if (shouldOverwrite && localItem.isDeleted === 1 && data.isDeleted !== 1) {
-                            shouldOverwrite = false;
-                            // 如果本地已删除但云端没删，确保本地标记为“待同步”
-                            if (localItem.sync_status !== 1) {
-                                await table.update(localItem.id, { sync_status: 1, _isSync: true });
+                            if (serverTime > localTime + 1000) {
+                                console.log(`[Sync] ♻️ 云端已恢复/更新数据，允许覆盖本地删除状态: ${tableName}:${doc.$id}`);
+                                shouldOverwrite = true;
+                            } else {
+                                shouldOverwrite = false;
+                                // 如果本地已删除但云端没删，确保本地标记为“待同步”
+                                if (localItem.sync_status !== 1) {
+                                    await table.update(localItem.id, { sync_status: 1, _isSync: true });
+                                }
                             }
                         }
 
@@ -746,8 +794,10 @@ export class SyncService {
         delete data.sync_status;
         delete data._isSync;
         delete data.pinyin; // 拼音字段通常不在云端 schema 中，本地生成即可
-        delete data.updatedAt; // 使用 Appwrite 自带的 $updatedAt
-        delete data.createdAt; // 使用 Appwrite 自带的 $createdAt
+        
+        // 注意：不要主动删除 createdAt 和 updatedAt
+        // 1. 如果用户在 Appwrite 中定义了同名必填字段，删除会导致 400 错误
+        // 2. 如果云端没有这些字段，下方的 pushToAppwrite 自动重试逻辑会剔除它们
         
         // 删除所有以 $ 开头的 Appwrite 系统字段，防止 400 错误
         Object.keys(data).forEach(key => {
