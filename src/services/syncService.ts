@@ -13,9 +13,14 @@ export class SyncService {
     private static syncStatus: 'idle' | 'syncing' | 'error' = 'idle';
     private static sessionInitialized = false;
     private static lastSyncResults: Record<string, { success: boolean; error?: string }> = {};
+    private static lastErrorMessage: string | null = null;
 
     static getLastSyncResults() {
         return this.lastSyncResults;
+    }
+
+    static getLastErrorMessage() {
+        return this.lastErrorMessage;
     }
 
     static getStatus() {
@@ -150,6 +155,14 @@ export class SyncService {
                 this.lastSyncResults = results;
                 this.syncStatus = hasError ? 'error' : 'idle';
                 
+                if (hasError) {
+                    // 提取第一个错误信息
+                    const firstError = Object.values(results).find(r => r.error)?.error;
+                    this.lastErrorMessage = firstError || '未知同步错误';
+                } else {
+                    this.lastErrorMessage = null;
+                }
+                
                 // 只要有关键表同步成功，就更新同步时间，避免因为日志等次要表失败导致一直显示“从未同步”
                 const criticalTables = ['products', 'customers', 'orders'];
                 const criticalSuccess = criticalTables.every(t => results[t]?.success);
@@ -164,9 +177,10 @@ export class SyncService {
                 }
                 
                 return !hasError;
-            } catch (error) {
+            } catch (error: any) {
                 console.error('❌ 同步服务异常:', error);
                 this.syncStatus = 'error';
+                this.lastErrorMessage = error.message || String(error);
                 return false;
             } finally {
                 this.isSyncing = false;
@@ -389,6 +403,8 @@ export class SyncService {
         if (this.isSyncing) throw new Error('同步正在进行中，请稍后再试');
         this.isSyncing = true;
         
+        const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
         try {
             const tables = [
                 { name: 'products', collId: COLLECTIONS.PRODUCTS },
@@ -403,12 +419,42 @@ export class SyncService {
                 console.log(`[Reset] 正在清空云端集合: ${name}...`);
                 let hasMore = true;
                 while (hasMore) {
-                    const response = await databases.listDocuments(DATABASE_ID, collId, [Query.limit(100)]);
+                    let response;
+                    try {
+                        response = await databases.listDocuments(DATABASE_ID, collId, [Query.limit(100)]);
+                    } catch (listErr: any) {
+                        if (listErr.code === 429) {
+                            console.warn('[Reset] 触发频率限制，等待 2 秒后重试列表查询...');
+                            await sleep(2000);
+                            continue;
+                        }
+                        throw listErr;
+                    }
+
                     if (response.documents.length === 0) {
                         hasMore = false;
                     } else {
                         for (const doc of response.documents) {
-                            await databases.deleteDocument(DATABASE_ID, collId, doc.$id);
+                            let deleted = false;
+                            let retries = 0;
+                            while (!deleted && retries < 3) {
+                                try {
+                                    await databases.deleteDocument(DATABASE_ID, collId, doc.$id);
+                                    deleted = true;
+                                    // 每次删除后微小延迟，防止触发频率限制
+                                    await sleep(100); 
+                                } catch (delErr: any) {
+                                    if (delErr.code === 429) {
+                                        const waitTime = (retries + 1) * 2000;
+                                        console.warn(`[Reset] 删除触发频率限制，等待 ${waitTime/1000} 秒后重试...`);
+                                        await sleep(waitTime);
+                                        retries++;
+                                    } else {
+                                        console.error(`[Reset] 删除文档失败 ${doc.$id}:`, delErr);
+                                        deleted = true; // 跳过该文档
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -478,7 +524,16 @@ export class SyncService {
                     const pushToAppwrite = async (payload: any, retryCount = 0): Promise<any> => {
                         try {
                             if (appwriteId) {
-                                return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
+                                try {
+                                    return await databases.updateDocument(DATABASE_ID, collectionId, appwriteId, payload);
+                                } catch (updateErr: any) {
+                                    // 如果云端文档不存在 (404)，则尝试重新创建
+                                    if (updateErr.code === 404) {
+                                        console.warn(`[Sync] 云端文档不存在 (${appwriteId})，将重新创建:`, tableName);
+                                        return await databases.createDocument(DATABASE_ID, collectionId, ID.unique(), payload);
+                                    }
+                                    throw updateErr;
+                                }
                             } else {
                                 // 尝试通过业务唯一 ID 匹配云端，防止重复创建
                                 // 注意：不再通过 name 匹配，因为名称可能重复，且容易导致误覆盖
@@ -530,6 +585,12 @@ export class SyncService {
                                     delete newPayload[attrName];
                                 }
                                 return await pushToAppwrite(newPayload, retryCount + 1);
+                            }
+
+                            // 3. 权限错误处理
+                            if (err.code === 401 || err.code === 403) {
+                                console.error(`[Sync] 🚫 权限不足，无法推送数据 (${tableName}):`, err);
+                                throw err;
                             }
 
                             console.error(`[Sync] Appwrite Push Error (${tableName}:${item.id}):`, errorMsg);
