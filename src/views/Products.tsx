@@ -120,10 +120,10 @@ export default function Products({ userRole }: ProductsProps) {
       '名称': p.name,
       '分类': p.category,
       '进货价': p.purchasePrice,
-      '批发价': p.wholesalePrice,
-      '价格一': p.price2,
-      '自定义价': p.price3,
-      '零售价': p.retailPrice,
+      '价格一': p.wholesalePrice,
+      '价格二': p.retailPrice,
+      '价格三': p.price2,
+      '价格四': p.price3,
       '单位': p.unit,
       '当前库存': p.stock,
       '库存预警值': p.minStock
@@ -302,16 +302,22 @@ export default function Products({ userRole }: ProductsProps) {
                   <p className="text-sm font-bold text-slate-500">¥{(product.purchasePrice || 0).toFixed(1)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] text-slate-400 font-medium uppercase">批发价</p>
+                  <p className="text-[10px] text-slate-400 font-medium uppercase">价格一</p>
                   <p className="text-sm font-bold text-indigo-600">¥{(product.wholesalePrice || 0).toFixed(1)}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[10px] text-slate-400 font-medium uppercase">零售价</p>
+                  <p className="text-[10px] text-slate-400 font-medium uppercase">价格二</p>
                   <p className="text-sm font-bold text-rose-500">¥{(product.retailPrice || 0).toFixed(1)}</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] text-slate-400 font-medium uppercase">自定义价</p>
-                  <p className="text-sm font-bold text-slate-600">¥{(product.price3 || 0).toFixed(1)}</p>
+                <div className="grid grid-cols-2 gap-2 mt-1">
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 font-medium uppercase">价格三</p>
+                    <p className="text-xs font-bold text-slate-500">¥{(product.price2 || 0).toFixed(1)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-slate-400 font-medium uppercase">价格四</p>
+                    <p className="text-xs font-bold text-slate-500">¥{(product.price3 || 0).toFixed(1)}</p>
+                  </div>
                 </div>
               </div>
 
@@ -488,19 +494,19 @@ function ProductDetailsModal({ product, onClose, onEdit }: { product: Product, o
                   <span className="text-sm font-bold text-slate-700">¥{(product.purchasePrice || 0).toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                  <span className="text-sm text-slate-500">批发价</span>
+                  <span className="text-sm text-slate-500">价格一</span>
                   <span className="text-sm font-bold text-indigo-600">¥{(product.wholesalePrice || 0).toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                  <span className="text-sm text-slate-500">零售价</span>
+                  <span className="text-sm text-slate-500">价格二</span>
                   <span className="text-sm font-bold text-rose-500">¥{(product.retailPrice || 0).toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                  <span className="text-sm text-slate-500">价格一</span>
+                  <span className="text-sm text-slate-500">价格三</span>
                   <span className="text-sm font-bold text-slate-700">¥{(product.price2 || 0).toFixed(1)}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                  <span className="text-sm text-slate-500">自定义价</span>
+                  <span className="text-sm text-slate-500">价格四</span>
                   <span className="text-sm font-bold text-slate-700">¥{(product.price3 || 0).toFixed(1)}</span>
                 </div>
               </div>
@@ -742,7 +748,7 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">批发价 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格一 (¥)</label>
               <NumberInput 
                 step="0.1"
                 value={formData.wholesalePrice}
@@ -751,7 +757,7 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">零售价 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格二 (¥)</label>
               <NumberInput 
                 required
                 step="0.1"
@@ -761,7 +767,7 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格一 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格三 (¥)</label>
               <NumberInput 
                 required
                 step="0.1"
@@ -771,7 +777,7 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">自定义价 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格四 (¥)</label>
               <NumberInput 
                 required
                 step="0.1"
@@ -905,7 +911,7 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">批发价 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格一 (¥)</label>
               <NumberInput 
                 step="0.1"
                 value={prices.wholesalePrice}
@@ -914,7 +920,7 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">零售价 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格二 (¥)</label>
               <NumberInput 
                 step="0.1"
                 value={prices.retailPrice}
@@ -923,7 +929,7 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格一 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格三 (¥)</label>
               <NumberInput 
                 step="0.1"
                 value={prices.price2}
@@ -932,7 +938,7 @@ function PriceEditModal({ product, onClose }: { product: Product, onClose: () =>
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">自定义价 (¥)</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">价格四 (¥)</label>
               <NumberInput 
                 step="0.1"
                 value={prices.price3}

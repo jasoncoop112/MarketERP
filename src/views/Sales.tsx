@@ -375,9 +375,9 @@ export default function Sales() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-160px)]">
+    <div className="grid grid-cols-1 md:grid-cols-11 lg:grid-cols-12 gap-4 lg:gap-8 h-[calc(100vh-160px)]">
       {/* Product Selection (Left) */}
-      <div className="lg:col-span-7 flex flex-col gap-6 overflow-hidden">
+      <div className="md:col-span-6 lg:col-span-7 flex flex-col gap-4 lg:gap-6 overflow-hidden">
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 shrink-0 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={22} />
@@ -472,12 +472,12 @@ export default function Sales() {
                     <p className="text-[10px] text-slate-400 truncate">{product.category} · {product.unit}</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-3">
-                  <p className="text-lg font-bold text-indigo-600">¥{(product.wholesalePrice || 0).toFixed(1)}</p>
-                  <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                    <Plus size={18} />
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-lg font-bold text-indigo-600">¥{(product.wholesalePrice || 0).toFixed(1)}</p>
+                    <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                      <Plus size={18} />
+                    </div>
                   </div>
-                </div>
               </button>
             ))}
           </div>
@@ -485,7 +485,7 @@ export default function Sales() {
       </div>
 
       {/* Cart & Checkout (Right) */}
-      <div className="lg:col-span-5 bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col overflow-hidden">
+      <div className="md:col-span-5 lg:col-span-5 bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col overflow-hidden">
         {/* Cart Header */}
         <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
@@ -553,7 +553,15 @@ export default function Sales() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6 space-y-4 shadow-inner bg-slate-50/30">
+          {/* Scrollbar styling for touch devices */}
+          <style dangerouslySetInnerHTML={{ __html: `
+            .scrollbar-wide::-webkit-scrollbar { width: 10px; height: 10px; }
+            .scrollbar-wide::-webkit-scrollbar-track { background: transparent; }
+            .scrollbar-wide::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
+            .scrollbar-wide::-webkit-scrollbar-thumb:hover { background: #cbd5e1; background-clip: content-box; }
+          `}} />
+          <div className="space-y-4 scrollbar-wide">
           {cart.length > 0 ? (
             cart.map((item) => {
               const product = products.find(p => p.id === item.productId);
@@ -586,10 +594,10 @@ export default function Sales() {
                         >
                           {product && (
                             <>
-                              <option value={product.wholesalePrice || 0}>批发价: ¥{(product.wholesalePrice || 0).toFixed(1)}</option>
-                              <option value={product.retailPrice || 0}>零售价: ¥{(product.retailPrice || 0).toFixed(1)}</option>
-                              <option value={product.price2 || 0}>价格一: ¥{(product.price2 || 0).toFixed(1)}</option>
-                              <option value={product.price3 || 0}>自定义价: ¥{(product.price3 || 0).toFixed(1)}</option>
+                              <option value={product.wholesalePrice || 0}>价格一: ¥{(product.wholesalePrice || 0).toFixed(1)}</option>
+                              <option value={product.retailPrice || 0}>价格二: ¥{(product.retailPrice || 0).toFixed(1)}</option>
+                              <option value={product.price2 || 0}>价格三: ¥{(product.price2 || 0).toFixed(1)}</option>
+                              <option value={product.price3 || 0}>价格四: ¥{(product.price3 || 0).toFixed(1)}</option>
                             </>
                           )}
                         </select>
@@ -647,6 +655,7 @@ export default function Sales() {
               <p className="text-sm">购物车是空的</p>
             </div>
           )}
+          </div>
         </div>
 
         {/* Cart Footer */}

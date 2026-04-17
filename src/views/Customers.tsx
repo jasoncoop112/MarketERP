@@ -593,10 +593,10 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
                           >
                             {product && (
                               <>
-                                <option value={product.wholesalePrice || 0}>批发价: ¥{(product.wholesalePrice || 0).toFixed(1)}</option>
-                                <option value={product.retailPrice || 0}>零售价: ¥{(product.retailPrice || 0).toFixed(1)}</option>
-                                <option value={product.price2 || 0}>价格一: ¥{(product.price2 || 0).toFixed(1)}</option>
-                                <option value={product.price3 || 0}>自定义价: ¥{(product.price3 || 0).toFixed(1)}</option>
+                                <option value={product.wholesalePrice || 0}>价格一: ¥{(product.wholesalePrice || 0).toFixed(1)}</option>
+                                <option value={product.retailPrice || 0}>价格二: ¥{(product.retailPrice || 0).toFixed(1)}</option>
+                                <option value={product.price2 || 0}>价格三: ¥{(product.price2 || 0).toFixed(1)}</option>
+                                <option value={product.price3 || 0}>价格四: ¥{(product.price3 || 0).toFixed(1)}</option>
                               </>
                             )}
                           </select>
