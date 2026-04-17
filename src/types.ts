@@ -15,10 +15,10 @@ export interface Product {
   category: string;
   image?: string;
   purchasePrice: number; // 进货价格
-  wholesalePrice: number; // 批发价格 (Price 1)
-  price2: number; // 价格 2
-  price3: number; // 价格 3
-  retailPrice: number;
+  wholesalePrice: number; // 价格一 (Price 1)
+  price2: number; // 价格三 (Price 3)
+  price3: number; // 价格四 (Price 4)
+  retailPrice: number; // 价格二 (Price 2)
   weight: number; // in kg
   unit: string;
   pricingMethod: 'piece' | 'weight'; // 计价方式: 按件卖 | 按斤卖
