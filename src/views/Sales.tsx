@@ -375,7 +375,7 @@ export default function Sales() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-11 lg:grid-cols-12 gap-4 lg:gap-8 h-[calc(100vh-160px)]">
+    <div className="grid grid-cols-1 md:grid-cols-11 lg:grid-cols-12 gap-4 lg:gap-8 h-[calc(100dvh-120px)]">
       {/* Product Selection (Left) */}
       <div className="md:col-span-6 lg:col-span-7 flex flex-col gap-4 lg:gap-6 overflow-hidden">
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 shrink-0 space-y-4">
@@ -443,39 +443,39 @@ export default function Sales() {
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredProducts.map((product) => (
               <button
                 key={product.id}
                 onClick={() => addToCart(product)}
-                className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all text-left group flex flex-col justify-between h-full relative"
+                className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:border-indigo-200 active:scale-[0.98] transition-all text-left group flex flex-col justify-between h-full relative"
               >
                 {product.stock <= product.minStock && (
-                  <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow-lg z-10 animate-pulse">
-                    <AlertTriangle size={8} /> 库存预警
+                  <div className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-bold px-2 py-1 rounded-full flex items-center gap-0.5 shadow-lg z-10 animate-pulse">
+                    <AlertTriangle size={10} /> 库存预警
                   </div>
                 )}
                 <div className="flex gap-4 items-start">
-                  <div className="w-16 h-16 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 shrink-0 overflow-hidden border border-slate-100">
+                  <div className="w-20 h-20 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 shrink-0 overflow-hidden border border-slate-100">
                     {product.image ? (
                       <img src={getImageUrl(product.image)} alt={product.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <Package size={24} strokeWidth={1} />
+                      <Package size={28} strokeWidth={1} />
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{product.code}</span>
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${product.stock > product.minStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider truncate">{product.code}</span>
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${product.stock > product.minStock ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                     </div>
-                    <h4 className="font-bold text-slate-800 mb-0.5 truncate">{product.name}</h4>
-                    <p className="text-[10px] text-slate-400 truncate">{product.category} · {product.unit}</p>
+                    <h4 className="font-bold text-slate-800 text-lg mb-1 leading-tight">{product.name}</h4>
+                    <p className="text-xs text-slate-400 truncate">{product.category} · {product.unit}</p>
                   </div>
                 </div>
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-lg font-bold text-indigo-600">¥{(product.wholesalePrice || 0).toFixed(1)}</p>
-                    <div className="w-8 h-8 bg-slate-50 rounded-lg flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                      <Plus size={18} />
+                  <div className="flex items-center justify-between mt-4">
+                    <p className="text-xl font-black text-indigo-600">¥{(product.wholesalePrice || 0).toFixed(1)}</p>
+                    <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                      <Plus size={24} />
                     </div>
                   </div>
               </button>
@@ -487,64 +487,64 @@ export default function Sales() {
       {/* Cart & Checkout (Right) */}
       <div className="md:col-span-5 lg:col-span-5 bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col overflow-hidden">
         {/* Cart Header */}
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
-              <ShoppingCart size={20} />
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-100">
+              <ShoppingCart size={16} />
             </div>
-            <h3 className="font-bold text-slate-800">当前订单</h3>
+            <h3 className="font-bold text-slate-800 text-sm">当前订单</h3>
           </div>
           <button 
             onClick={() => setCart([])}
-            className="text-xs font-bold text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest"
+            className="text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-widest"
           >
-            清空购物车
+            清空
           </button>
         </div>
 
         {/* Customer Selector */}
-        <div className="p-6 border-b border-slate-100 space-y-4">
+        <div className="px-5 py-4 border-b border-slate-100 space-y-3 shrink-0">
           <div className="flex items-center justify-between">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">选择客户</label>
             {selectedCustomer && (
               <button 
                 onClick={handleQuickOrder}
-                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded"
+                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded"
               >
-                <History size={12} /> 快速开单 (带入上次)
+                <History size={10} /> 快速开单
               </button>
             )}
           </div>
           <div className="relative">
-            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <select 
               value={selectedCustomer?.id || ''}
               onChange={(e) => {
                 const c = customers.find(cust => cust.id === parseInt(e.target.value));
                 setSelectedCustomer(c || null);
               }}
-              className="w-full pl-12 pr-10 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 appearance-none text-lg font-bold text-slate-800 transition-all cursor-pointer shadow-sm"
+              className="w-full pl-10 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 appearance-none text-sm font-bold text-slate-800 transition-all cursor-pointer shadow-sm"
             >
               <option value="">散客 (无记录)</option>
               {customers.map(c => (
-                <option key={c.id} value={c.id}>{c.name}{c.phone ? ` (${c.phone})` : ''}</option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-              <ChevronRight size={20} className="rotate-90" />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+              <ChevronRight size={16} className="rotate-90" />
             </div>
           </div>
           {selectedCustomer && (
-            <div className="flex flex-col gap-1 px-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">当前欠款:</span>
-                <span className={`text-sm font-black ${selectedCustomer.debt > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400 uppercase">欠款:</span>
+                <span className={`text-[11px] font-black ${selectedCustomer.debt > 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
                   ¥{(selectedCustomer.debt || 0).toFixed(1)}
                 </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500">未还桶数:</span>
-                <span className="text-sm font-black text-amber-600">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-slate-400 uppercase">未还桶:</span>
+                <span className="text-[11px] font-black text-amber-600">
                   {((selectedCustomer.bucketsOut || 0) - (selectedCustomer.bucketsIn || 0))} 个
                 </span>
               </div>
@@ -553,7 +553,7 @@ export default function Sales() {
         </div>
 
         {/* Cart Items */}
-        <div className="flex-1 overflow-y-auto p-3 md:p-4 lg:p-6 space-y-4 shadow-inner bg-slate-50/30">
+        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 shadow-inner bg-slate-50/10 scrollbar-wide">
           {/* Scrollbar styling for touch devices */}
           <style dangerouslySetInnerHTML={{ __html: `
             .scrollbar-wide::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -561,90 +561,70 @@ export default function Sales() {
             .scrollbar-wide::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 5px; border: 2px solid transparent; background-clip: content-box; }
             .scrollbar-wide::-webkit-scrollbar-thumb:hover { background: #cbd5e1; background-clip: content-box; }
           `}} />
-          <div className="space-y-4 scrollbar-wide">
+          <div className="space-y-3">
           {cart.length > 0 ? (
             cart.map((item) => {
               const product = products.find(p => p.id === item.productId);
               const isWeight = item.pricingMethod === 'weight';
               
               return (
-                <div key={item.productId} className="flex flex-col p-4 rounded-2xl bg-slate-50 border border-slate-100 group gap-3">
+                <div key={item.productId} className="flex flex-col p-3 rounded-xl bg-slate-50 border border-slate-100 group gap-2">
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
-                      <h5 className="text-sm font-bold text-slate-800 truncate">{item.name}</h5>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{product?.code} · {item.unit}</p>
+                      <h5 className="text-xs font-bold text-slate-800 truncate">{item.name}</h5>
+                      <p className="text-[9px] text-slate-400">{product?.code}</p>
                     </div>
                     <button 
                       onClick={() => removeFromCart(item.productId)}
-                      className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                      className="p-2 text-slate-300 hover:text-rose-500 transition-all"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-12 gap-3 items-end">
-                    {/* Price Selection & Manual Input */}
-                    <div className="col-span-7 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">本次单价</label>
-                        <select 
-                          value={item.price || 0}
-                          onChange={(e) => updatePrice(item.productId, parseFloat(e.target.value) || 0)}
-                          className="text-[10px] bg-white border border-slate-200 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        >
-                          {product && (
-                            <>
-                              <option value={product.wholesalePrice || 0}>价格一: ¥{(product.wholesalePrice || 0).toFixed(1)}</option>
-                              <option value={product.retailPrice || 0}>价格二: ¥{(product.retailPrice || 0).toFixed(1)}</option>
-                              <option value={product.price2 || 0}>价格三: ¥{(product.price2 || 0).toFixed(1)}</option>
-                              <option value={product.price3 || 0}>价格四: ¥{(product.price3 || 0).toFixed(1)}</option>
-                            </>
-                          )}
-                        </select>
-                      </div>
+                  <div className="grid grid-cols-12 gap-2 items-center">
+                    <div className="col-span-7 flex flex-col gap-1">
+                      <select 
+                        value={item.price || 0}
+                        onChange={(e) => updatePrice(item.productId, parseFloat(e.target.value) || 0)}
+                        className="text-[10px] bg-white border border-slate-200 rounded px-1 py-0.5 focus:outline-none"
+                      >
+                        {product && (
+                          <>
+                            <option value={product.wholesalePrice || 0}>一: ¥{product.wholesalePrice}</option>
+                            <option value={product.retailPrice || 0}>二: ¥{product.retailPrice}</option>
+                            <option value={product.price2 || 0}>三: ¥{product.price2}</option>
+                            <option value={product.price3 || 0}>四: ¥{product.price3}</option>
+                          </>
+                        )}
+                      </select>
                       <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">¥</span>
                         <NumberInput 
                           step="0.1"
                           value={item.price}
                           onChange={(val) => updatePrice(item.productId, val)}
-                          className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm font-bold text-indigo-600"
+                          className="w-full px-2 py-1 bg-white border border-slate-200 rounded text-[11px] font-bold text-indigo-600 outline-none"
                         />
                       </div>
                     </div>
 
-                    {/* Quantity Input */}
-                    <div className="col-span-5 space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        {isWeight ? '斤数 (小数)' : '数量 (整数)'}
-                      </label>
-                        <div className="flex items-center bg-white rounded-xl border border-slate-200 p-1">
-                          <button 
-                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                            className="p-2.5 hover:bg-slate-50 text-slate-400 rounded-lg transition-colors"
-                          >
-                            <Minus size={16} />
-                          </button>
-                          <NumberInput 
-                            step={isWeight ? "0.1" : "1"}
-                            value={item.quantity}
-                            onChange={(val) => updateQuantity(item.productId, val)}
-                            placeholder="0"
-                            className="w-full text-center text-sm font-bold text-slate-700 bg-transparent outline-none"
-                          />
-                          <button 
-                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                            className="p-2.5 hover:bg-slate-50 text-slate-400 rounded-lg transition-colors"
-                          >
-                            <Plus size={16} />
-                          </button>
-                        </div>
+                    <div className="col-span-11 sm:col-span-5 md:col-span-5 lg:col-span-5 col-start-2 sm:col-start-auto">
+                      <div className="flex items-center bg-white rounded-lg border border-slate-200 p-0.5">
+                        <button onClick={() => updateQuantity(item.productId, item.quantity - 1)} className="p-1.5 text-slate-400"><Minus size={14}/></button>
+                        <NumberInput 
+                          step={isWeight ? "0.1" : "1"}
+                          value={item.quantity}
+                          onChange={(val) => updateQuantity(item.productId, val)}
+                          className="w-full text-center text-xs font-bold bg-transparent outline-none"
+                        />
+                        <button onClick={() => updateQuantity(item.productId, item.quantity + 1)} className="p-1.5 text-slate-400"><Plus size={14}/></button>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center pt-2 border-t border-slate-100/50">
-                    <span className="text-[10px] text-slate-400">小计</span>
-                    <p className="text-sm font-bold text-slate-800 font-mono">¥{(item.total || 0).toFixed(1)}</p>
+                  <div className="flex justify-between items-center pt-1 border-t border-slate-100/50 mt-1">
+                    <span className="text-[9px] text-slate-400">小计</span>
+                    <p className="text-xs font-bold text-slate-800 font-mono">¥{(item.total || 0).toFixed(1)}</p>
                   </div>
                 </div>
               );
@@ -659,84 +639,69 @@ export default function Sales() {
         </div>
 
         {/* Cart Footer */}
-        <div className="p-6 bg-slate-50 border-t border-slate-100 space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm text-slate-500">
-              <span>商品总额</span>
-              <span className="font-mono">¥{(totalAmount || 0).toFixed(1)}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-slate-500 flex items-center gap-1">
-                <Tag size={14} /> 优惠金额
-              </span>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-xs">-</span>
+        <div className="px-5 py-4 bg-white border-t border-slate-100 space-y-3 shrink-0">
+          <div className="space-y-1.5 text-[11px]">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-500">
+              <div className="flex justify-between items-center px-1">
+                <span>总额</span>
+                <span className="font-mono font-bold text-slate-700 text-xs">¥{(totalAmount || 0).toFixed(1)}</span>
+              </div>
+              <div className="flex justify-between items-center text-rose-500 px-1 border-l border-slate-100">
+                <span className="flex items-center gap-1"><Tag size={10} /> 优惠</span>
                 <NumberInput 
                   step="0.1"
                   value={discount}
                   onChange={(val) => setDiscount(val)}
-                  className="w-20 text-right bg-transparent border-b border-slate-200 focus:border-indigo-500 outline-none text-sm font-mono font-bold text-rose-500"
+                  className="w-12 text-right bg-transparent border-b border-rose-100 outline-none font-mono font-bold text-xs"
                 />
               </div>
             </div>
-            <div className="flex justify-between items-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
-              <span className="text-sm text-indigo-700 flex items-center gap-1 font-bold">
-                <Package size={14} /> 押桶数量
-              </span>
-              <div className="flex items-center gap-2">
+            
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex justify-between items-center p-1 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
+                <span className="text-indigo-600 font-bold flex items-center gap-1 leading-none"><Package size={10} /> 押桶</span>
                 <NumberInput 
                   step="1"
                   value={bucketsOut}
                   onChange={(val) => setBucketsOut(val)}
-                  className="w-20 text-right bg-white px-2 py-1 rounded-lg border border-indigo-200 focus:border-indigo-500 outline-none text-sm font-mono font-bold text-indigo-600 shadow-sm"
+                  className="w-8 text-right bg-white rounded border border-indigo-200 px-1 font-mono font-bold text-indigo-600 text-xs"
                 />
-                <span className="text-indigo-400 text-[10px] font-bold">个</span>
               </div>
-            </div>
-            <div className="flex justify-between items-center p-2 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
-              <span className="text-sm text-emerald-700 flex items-center gap-1 font-bold">
-                <ArrowRight size={14} className="rotate-180" /> 还桶数量
-              </span>
-              <div className="flex items-center gap-2">
+              <div className="flex justify-between items-center p-1 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
+                <span className="text-emerald-600 font-bold flex items-center gap-1 leading-none"><ArrowRight size={10} className="rotate-180" /> 还桶</span>
                 <NumberInput 
                   step="1"
                   value={bucketsIn}
                   onChange={(val) => setBucketsIn(val)}
-                  className="w-20 text-right bg-white px-2 py-1 rounded-lg border border-emerald-200 focus:border-emerald-500 outline-none text-sm font-mono font-bold text-emerald-600 shadow-sm"
+                  className="w-8 text-right bg-white rounded border border-emerald-200 px-1 font-mono font-bold text-emerald-600 text-xs"
                 />
-                <span className="text-emerald-400 text-[10px] font-bold">个</span>
               </div>
             </div>
-            <div className="flex justify-between text-sm text-slate-500">
-              <span>押金小计 (¥20/个)</span>
-              <span className={`font-mono font-bold ${depositAmount >= 0 ? 'text-indigo-600' : 'text-emerald-600'}`}>
-                {depositAmount >= 0 ? '+' : ''}¥{depositAmount.toFixed(1)}
-              </span>
+            <div className="flex justify-between text-[10px] text-slate-400 px-1">
+              <span>押金小计(¥20/个): <span className={`font-mono font-bold ${depositAmount >= 0 ? 'text-indigo-600' : 'text-emerald-600'}`}>¥{depositAmount.toFixed(1)}</span></span>
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-200 flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">应付总计</p>
-              <p className="text-3xl font-black text-slate-900 font-mono">¥{(finalAmount || 0).toFixed(1)}</p>
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">应付合计</p>
+              <p className="text-xl font-black text-slate-900 font-mono tracking-tighter leading-none">¥{(finalAmount || 0).toFixed(1)}</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
               <button 
                 disabled={cart.length === 0}
                 onClick={handlePreview}
-                className="px-6 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-all disabled:opacity-50 flex items-center gap-2"
-                title="打印单预览"
+                className="p-3 bg-slate-50 text-slate-400 rounded-xl border border-slate-100"
               >
-                <Printer size={20} />
-                <span className="hidden md:inline">预览</span>
+                <Printer size={18} />
               </button>
               <button 
                 disabled={cart.length === 0}
                 onClick={() => setIsCheckoutOpen(true)}
-                className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 shadow-xl shadow-indigo-100 transition-all disabled:opacity-50 disabled:shadow-none flex items-center gap-2"
+                className="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md shadow-indigo-100/50 flex items-center gap-1.5"
               >
-                <span>结算开单</span>
-                <ArrowRight size={20} />
+                <span className="text-sm">结算</span>
+                <ArrowRight size={16} />
               </button>
             </div>
           </div>
