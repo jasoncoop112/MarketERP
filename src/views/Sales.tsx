@@ -31,6 +31,7 @@ import { db } from '../db';
 import { syncService } from '../services/syncService';
 import { getImageUrl } from '../appwrite';
 import type { Product, Customer, Order, OrderItem, SearchHistory } from '../types';
+import { matchProduct } from '../utils/pinyinUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 
@@ -97,12 +98,7 @@ export default function Sales() {
     }
     
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(p => 
-        (p.name || '').toLowerCase().includes(term) || 
-        (p.code || '').toLowerCase().includes(term) ||
-        (p.pinyin || '').toLowerCase().includes(term)
-      );
+      result = result.filter(p => matchProduct(p, searchTerm));
 
       // Sort by search frequency when searching
       result.sort((a, b) => {
@@ -375,9 +371,9 @@ export default function Sales() {
   };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-11 lg:grid-cols-12 gap-4 lg:gap-8 h-[calc(100dvh-120px)]">
+    <div className="grid grid-cols-1 md:grid-cols-11 lg:grid-cols-12 gap-4 lg:gap-8 min-h-0 h-full">
       {/* Product Selection (Left) */}
-      <div className="md:col-span-6 lg:col-span-7 flex flex-col gap-4 lg:gap-6 overflow-hidden">
+      <div className="md:col-span-6 lg:col-span-7 flex flex-col gap-4 lg:gap-6 min-h-0 h-full overflow-hidden">
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 shrink-0 space-y-4">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={22} />
@@ -485,7 +481,7 @@ export default function Sales() {
       </div>
 
       {/* Cart & Checkout (Right) */}
-      <div className="md:col-span-5 lg:col-span-5 bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col overflow-hidden">
+      <div className="md:col-span-5 lg:col-span-5 bg-white rounded-3xl shadow-xl border border-slate-100 flex flex-col overflow-hidden h-full min-h-0">
         {/* Cart Header */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 shrink-0">
           <div className="flex items-center gap-2">

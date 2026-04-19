@@ -32,7 +32,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { syncService } from '../services/syncService';
 import type { Product } from '../types';
-import { pinyin } from 'pinyin-pro';
+import { matchProduct, getPinyinInitials } from '../utils/pinyinUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
@@ -67,12 +67,7 @@ export default function Products({ userRole }: ProductsProps) {
 
     // 1. Search filter
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(p => 
-        (p.name || '').toLowerCase().includes(term) || 
-        (p.code || '').toLowerCase().includes(term) ||
-        (p.pinyin || '').toLowerCase().includes(term)
-      );
+      result = result.filter(p => matchProduct(p, searchTerm));
     }
 
     // 2. Category filter
@@ -582,12 +577,8 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
         return;
       }
 
-      // 增强拼音生成，处理数字和特殊字符
-      const py = pinyin((formData.name || '').trim(), { 
-        pattern: 'initial', 
-        toneType: 'none',
-        nonZh: 'consecutive' 
-      }).replace(/\s/g, '').toLowerCase();
+      // 增强拼音生成
+      const py = getPinyinInitials(formData.name || '');
       
       const data = { 
         ...formData, 
