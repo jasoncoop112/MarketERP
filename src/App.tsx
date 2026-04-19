@@ -40,7 +40,6 @@ import { zhCN } from 'date-fns/locale';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from './db';
 import type { Product, Customer, Order, OperationLog } from './types';
-import { pinyin } from 'pinyin-pro';
 import { syncService } from './services/syncService';
 
 // --- Views ---
