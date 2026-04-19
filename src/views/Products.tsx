@@ -291,7 +291,7 @@ export default function Products({ userRole }: ProductsProps) {
                     {product.category}
                   </span>
                   <span className={`px-2 py-0.5 ${product.pricingMethod === 'weight' ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'} text-[10px] font-bold rounded uppercase`}>
-                    {product.pricingMethod === 'weight' ? '按斤' : '按件'}
+                    按{product.unit || (product.pricingMethod === 'weight' ? '斤' : '件')}
                   </span>
                 </div>
               </div>
@@ -481,7 +481,7 @@ function ProductDetailsModal({ product, onClose, onEdit }: { product: Product, o
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">计价方式</p>
                 <p className="text-lg font-bold text-slate-800">
-                  {product.pricingMethod === 'weight' ? '按斤卖' : '按件卖'}
+                  按{product.unit || (product.pricingMethod === 'weight' ? '斤' : '件')}卖
                 </p>
               </div>
             </div>
@@ -722,7 +722,7 @@ function ProductFormModal({ product, onClose, onDelete }: { product: Product | n
                     onChange={() => setFormData({ ...formData, pricingMethod: 'piece' })} 
                   />
                   <Package size={18} />
-                  <span className="font-bold">按件卖 (整数)</span>
+                  <span className="font-bold">按{formData.unit || '件'}卖 (整数)</span>
                 </label>
                 <label className={`flex-1 flex items-center justify-center gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all ${formData.pricingMethod === 'weight' ? 'border-indigo-600 bg-indigo-50 text-indigo-600' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}>
                   <input 
