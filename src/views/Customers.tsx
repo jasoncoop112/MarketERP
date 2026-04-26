@@ -36,11 +36,11 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 import { syncService } from '../services/syncService';
 import type { Customer, Product, Order, OrderItem, Repayment } from '../types';
+import { matchProduct, getPinyinInitials } from '../utils/pinyinUtils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
-import { pinyin } from 'pinyin-pro';
 
 export default function Customers() {
   const customers = useLiveQuery(async () => {
@@ -57,12 +57,7 @@ export default function Customers() {
 
   const filteredCustomers = useMemo(() => {
     if (!searchTerm) return customers;
-    const term = searchTerm.toLowerCase();
-    return customers.filter(c => 
-      c.name.toLowerCase().includes(term) || 
-      c.phone.includes(term) ||
-      c.pinyin?.toLowerCase().includes(term)
-    );
+    return customers.filter(c => matchProduct(c, searchTerm) || (c.phone && c.phone.includes(searchTerm)));
   }, [customers, searchTerm]);
 
   const handleDelete = async (id: number) => {
@@ -361,12 +356,7 @@ function QuickOrderModal({ customer, onClose }: { customer: Customer, onClose: (
 
   const filteredProducts = useMemo(() => {
     if (!searchTerm) return products.slice(0, 8);
-    const term = searchTerm.toLowerCase();
-    return products.filter(p => 
-      p.name.toLowerCase().includes(term) || 
-      p.code.toLowerCase().includes(term) ||
-      p.pinyin.toLowerCase().includes(term)
-    );
+    return products.filter(p => matchProduct(p, searchTerm));
   }, [products, searchTerm]);
 
   const addToCart = (product: Product) => {
@@ -773,12 +763,8 @@ function CustomerFormModal({ customer, onClose }: { customer: Customer | null, o
     setIsSaving(true);
     console.log('Customer Form Submit Started', formData);
     try {
-      // 增强拼音生成，处理数字和特殊字符
-      const py = pinyin(formData.name || '', { 
-        pattern: 'initial', 
-        toneType: 'none',
-        nonZh: 'consecutive'
-      }).replace(/\s/g, '').toLowerCase();
+      // 增强拼音生成
+      const py = getPinyinInitials(formData.name || '');
 
       const data = { 
         ...formData, 

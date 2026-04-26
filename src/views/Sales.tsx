@@ -636,68 +636,68 @@ export default function Sales() {
 
         {/* Cart Footer */}
         <div className="px-5 py-4 bg-white border-t border-slate-100 space-y-3 shrink-0">
-          <div className="space-y-1.5 text-[11px]">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-500">
+          <div className="space-y-2 text-sm leading-none">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-slate-500">
               <div className="flex justify-between items-center px-1">
-                <span>总额</span>
-                <span className="font-mono font-bold text-slate-700 text-xs">¥{(totalAmount || 0).toFixed(1)}</span>
+                <span className="font-bold">总额</span>
+                <span className="font-mono font-black text-slate-800 text-base">¥{(totalAmount || 0).toFixed(1)}</span>
               </div>
               <div className="flex justify-between items-center text-rose-500 px-1 border-l border-slate-100">
-                <span className="flex items-center gap-1"><Tag size={10} /> 优惠</span>
+                <span className="flex items-center gap-1.5 font-bold"><Tag size={12} /> 优惠</span>
                 <NumberInput 
                   step="0.1"
                   value={discount}
                   onChange={(val) => setDiscount(val)}
-                  className="w-12 text-right bg-transparent border-b border-rose-100 outline-none font-mono font-bold text-xs"
+                  className="w-16 text-right bg-transparent border-b border-rose-100 outline-none font-mono font-black text-base"
                 />
               </div>
             </div>
             
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex justify-between items-center p-1 bg-indigo-50/50 rounded-lg border border-indigo-100/50">
-                <span className="text-indigo-600 font-bold flex items-center gap-1 leading-none"><Package size={10} /> 押桶</span>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex justify-between items-center p-2 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                <span className="text-indigo-600 font-black flex items-center gap-1.5 leading-none"><Package size={14} /> 押桶</span>
                 <NumberInput 
                   step="1"
                   value={bucketsOut}
                   onChange={(val) => setBucketsOut(val)}
-                  className="w-8 text-right bg-white rounded border border-indigo-200 px-1 font-mono font-bold text-indigo-600 text-xs"
+                  className="w-12 h-8 text-right bg-white rounded-lg border border-indigo-200 px-2 font-mono font-black text-indigo-600 text-base flex items-center justify-end"
                 />
               </div>
-              <div className="flex justify-between items-center p-1 bg-emerald-50/50 rounded-lg border border-emerald-100/50">
-                <span className="text-emerald-600 font-bold flex items-center gap-1 leading-none"><ArrowRight size={10} className="rotate-180" /> 还桶</span>
+              <div className="flex justify-between items-center p-2 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+                <span className="text-emerald-600 font-black flex items-center gap-1.5 leading-none"><ArrowRight size={14} className="rotate-180" /> 还桶</span>
                 <NumberInput 
                   step="1"
                   value={bucketsIn}
                   onChange={(val) => setBucketsIn(val)}
-                  className="w-8 text-right bg-white rounded border border-emerald-200 px-1 font-mono font-bold text-emerald-600 text-xs"
+                  className="w-12 h-8 text-right bg-white rounded-lg border border-emerald-200 px-2 font-mono font-black text-emerald-600 text-base flex items-center justify-end"
                 />
               </div>
             </div>
-            <div className="flex justify-between text-[10px] text-slate-400 px-1">
-              <span>押金小计(¥20/个): <span className={`font-mono font-bold ${depositAmount >= 0 ? 'text-indigo-600' : 'text-emerald-600'}`}>¥{depositAmount.toFixed(1)}</span></span>
+            <div className="flex justify-between text-xs text-slate-400 px-1">
+              <span>押金小计(¥20/个): <span className={`font-mono font-black ${depositAmount >= 0 ? 'text-indigo-600' : 'text-emerald-600'}`}>¥{depositAmount.toFixed(1)}</span></span>
             </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
             <div>
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">应付合计</p>
-              <p className="text-xl font-black text-slate-900 font-mono tracking-tighter leading-none">¥{(finalAmount || 0).toFixed(1)}</p>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">应付合计</p>
+              <p className="text-3xl font-black text-slate-900 font-mono tracking-tight leading-tight">¥{(finalAmount || 0).toFixed(1)}</p>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <button 
                 disabled={cart.length === 0}
                 onClick={handlePreview}
-                className="p-3 bg-slate-50 text-slate-400 rounded-xl border border-slate-100"
+                className="p-4 bg-slate-50 text-slate-400 rounded-2xl border border-slate-100 hover:bg-slate-100 transition-all active:scale-95"
               >
-                <Printer size={18} />
+                <Printer size={24} />
               </button>
               <button 
                 disabled={cart.length === 0}
                 onClick={() => setIsCheckoutOpen(true)}
-                className="px-4 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-md shadow-indigo-100/50 flex items-center gap-1.5"
+                className="px-6 py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100/50 flex items-center gap-2 hover:bg-indigo-700 hover:-translate-y-0.5 transition-all active:scale-95 active:translate-y-0"
               >
-                <span className="text-sm">结算</span>
-                <ArrowRight size={16} />
+                <span className="text-lg">结算</span>
+                <ArrowRight size={20} />
               </button>
             </div>
           </div>
